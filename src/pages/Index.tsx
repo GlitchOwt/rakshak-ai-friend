@@ -80,7 +80,7 @@ const Index = () => {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-indigo-100 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-rakshak-warm-gradient flex items-center justify-center p-4">
         <AuthModal 
           isOpen={showAuthModal} 
           onClose={() => setShowAuthModal(false)}
@@ -91,40 +91,40 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-indigo-100">
+    <div className="min-h-screen bg-rakshak-warm-gradient">
       <div className="container mx-auto px-4 py-6 max-w-md">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-4">
-            <Shield className="h-8 w-8 text-purple-600 mr-2" />
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+            <Shield className="h-8 w-8 text-rakshak-coral mr-2" />
+            <h1 className="text-3xl font-heading bg-rakshak-gradient bg-clip-text text-transparent">
               Rakshak.ai
             </h1>
           </div>
-          <p className="text-gray-600 text-sm">Your trusted safety companion</p>
+          <p className="text-rakshak-indigo/70 text-sm font-body">Your trusted safety companion</p>
         </div>
 
         {travelingAlone === null && (
-          <Card className="mb-6 border-0 shadow-xl bg-white/80 backdrop-blur-sm">
+          <Card className="mb-6 border-0 shadow-xl bg-rakshak-white/90 backdrop-blur-sm">
             <CardHeader className="text-center pb-4">
-              <CardTitle className="text-xl text-gray-800 mb-2">
+              <CardTitle className="text-xl text-rakshak-indigo mb-2 font-heading">
                 Are you traveling alone?
               </CardTitle>
-              <CardDescription className="text-gray-600">
+              <CardDescription className="text-rakshak-indigo/70 font-body">
                 Let us know so we can provide the best assistance
               </CardDescription>
             </CardHeader>
             <CardContent className="flex gap-4">
               <Button 
                 onClick={() => setTravelingAlone(true)}
-                className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white py-6 text-lg rounded-xl shadow-lg"
+                className="flex-1 bg-rakshak-gradient hover:opacity-90 text-white py-6 text-lg rounded-xl shadow-lg font-body transition-all duration-300"
               >
                 Yes
               </Button>
               <Button 
                 onClick={() => setTravelingAlone(false)}
                 variant="outline"
-                className="flex-1 py-6 text-lg rounded-xl border-2 border-gray-300 hover:border-purple-300"
+                className="flex-1 py-6 text-lg rounded-xl border-2 border-rakshak-coral/30 text-rakshak-indigo hover:border-rakshak-coral hover:bg-rakshak-coral/5 font-body transition-all duration-300"
               >
                 No
               </Button>
@@ -135,23 +135,23 @@ const Index = () => {
         {travelingAlone === true && (
           <div className="space-y-6">
             {!callInitiated ? (
-              <Card className="border-0 shadow-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white">
+              <Card className="border-0 shadow-xl bg-rakshak-gradient text-white">
                 <CardContent className="text-center p-6">
-                  <h3 className="text-xl font-semibold mb-2">Initiating AI Companion</h3>
-                  <p className="mb-4">Your safety call will begin in {countdown} seconds</p>
+                  <h3 className="text-xl font-heading mb-2">Initiating AI Companion</h3>
+                  <p className="mb-4 font-chat">Your safety call will begin in {countdown} seconds</p>
                   <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto"></div>
                 </CardContent>
               </Card>
             ) : (
-              <Card className="border-0 shadow-xl bg-green-50 border-green-200">
+              <Card className="border-0 shadow-xl bg-rakshak-teal/10 border-rakshak-teal/20">
                 <CardContent className="text-center p-6">
-                  <div className="w-4 h-4 bg-green-500 rounded-full animate-pulse mx-auto mb-3"></div>
-                  <h3 className="text-xl font-semibold text-green-800 mb-2">AI Companion Active</h3>
-                  <p className="text-green-700">Your safety companion is listening and ready to help</p>
+                  <div className="w-4 h-4 bg-rakshak-teal rounded-full animate-pulse mx-auto mb-3"></div>
+                  <h3 className="text-xl font-heading text-rakshak-teal mb-2">AI Companion Active</h3>
+                  <p className="text-rakshak-teal/80 font-chat">Your safety companion is listening and ready to help</p>
                   <Button 
                     onClick={() => setCallInitiated(false)}
                     variant="outline"
-                    className="mt-4 border-green-300 text-green-700 hover:bg-green-100"
+                    className="mt-4 border-rakshak-teal/30 text-rakshak-teal hover:bg-rakshak-teal/10 font-body"
                   >
                     End Conversation
                   </Button>
@@ -170,43 +170,43 @@ const Index = () => {
         {/* Features Grid */}
         <div className="grid grid-cols-2 gap-4 mb-6">
           <Card 
-            className="border-0 shadow-lg bg-white/70 backdrop-blur-sm hover:shadow-xl transition-shadow cursor-pointer"
+            className="border-0 shadow-lg bg-rakshak-white/80 backdrop-blur-sm hover:shadow-xl hover:bg-rakshak-white/90 transition-all duration-300 cursor-pointer"
             onClick={() => setShowContactsModal(true)}
           >
             <CardContent className="p-6 text-center">
-              <Users className="h-8 w-8 text-purple-600 mx-auto mb-3" />
-              <h3 className="font-semibold text-gray-800 mb-1">Emergency</h3>
-              <p className="text-sm text-gray-600">Contacts</p>
+              <Users className="h-8 w-8 text-rakshak-coral mx-auto mb-3" />
+              <h3 className="font-heading text-rakshak-indigo mb-1">Emergency</h3>
+              <p className="text-sm text-rakshak-indigo/70 font-body">Contacts</p>
             </CardContent>
           </Card>
 
           <Card 
-            className="border-0 shadow-lg bg-white/70 backdrop-blur-sm hover:shadow-xl transition-shadow cursor-pointer"
+            className="border-0 shadow-lg bg-rakshak-white/80 backdrop-blur-sm hover:shadow-xl hover:bg-rakshak-white/90 transition-all duration-300 cursor-pointer"
             onClick={() => setShowLegalChat(true)}
           >
             <CardContent className="p-6 text-center">
-              <MessageCircle className="h-8 w-8 text-pink-600 mx-auto mb-3" />
-              <h3 className="font-semibold text-gray-800 mb-1">Legal</h3>
-              <p className="text-sm text-gray-600">Support</p>
+              <MessageCircle className="h-8 w-8 text-rakshak-coral mx-auto mb-3" />
+              <h3 className="font-heading text-rakshak-indigo mb-1">Legal</h3>
+              <p className="text-sm text-rakshak-indigo/70 font-body">Support</p>
             </CardContent>
           </Card>
 
           <Card 
-            className="border-0 shadow-lg bg-white/70 backdrop-blur-sm hover:shadow-xl transition-shadow cursor-pointer"
+            className="border-0 shadow-lg bg-rakshak-white/80 backdrop-blur-sm hover:shadow-xl hover:bg-rakshak-white/90 transition-all duration-300 cursor-pointer"
             onClick={() => setShowHelplines(true)}
           >
             <CardContent className="p-6 text-center">
-              <Phone className="h-8 w-8 text-indigo-600 mx-auto mb-3" />
-              <h3 className="font-semibold text-gray-800 mb-1">Emergency</h3>
-              <p className="text-sm text-gray-600">Helplines</p>
+              <Phone className="h-8 w-8 text-rakshak-coral mx-auto mb-3" />
+              <h3 className="font-heading text-rakshak-indigo mb-1">Emergency</h3>
+              <p className="text-sm text-rakshak-indigo/70 font-body">Helplines</p>
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-lg bg-white/70 backdrop-blur-sm">
+          <Card className="border-0 shadow-lg bg-rakshak-white/80 backdrop-blur-sm">
             <CardContent className="p-6 text-center">
-              <MapPin className="h-8 w-8 text-green-600 mx-auto mb-3" />
-              <h3 className="font-semibold text-gray-800 mb-1">Location</h3>
-              <Badge variant="secondary" className="text-xs">Active</Badge>
+              <MapPin className="h-8 w-8 text-rakshak-teal mx-auto mb-3" />
+              <h3 className="font-heading text-rakshak-indigo mb-1">Location</h3>
+              <Badge variant="secondary" className="text-xs bg-rakshak-teal/20 text-rakshak-teal border-0 font-body">Active</Badge>
             </CardContent>
           </Card>
         </div>
@@ -215,7 +215,7 @@ const Index = () => {
         <Button 
           onClick={() => setTravelingAlone(null)}
           variant="ghost"
-          className="w-full text-gray-600 hover:text-purple-600"
+          className="w-full text-rakshak-indigo/70 hover:text-rakshak-coral hover:bg-rakshak-coral/5 font-body transition-all duration-300"
         >
           Change Travel Status
         </Button>

@@ -54,38 +54,38 @@ const HelplineNumbers = ({ isOpen, onClose }: HelplineNumbersProps) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-lg border-0 bg-white/95 backdrop-blur-sm max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-lg border-0 bg-rakshak-white/95 backdrop-blur-sm max-h-[90vh] overflow-y-auto">
         <DialogHeader className="text-center">
           <div className="flex items-center justify-center mb-4">
-            <Phone className="h-6 w-6 text-purple-600 mr-2" />
-            <DialogTitle className="text-xl">
+            <Phone className="h-6 w-6 text-rakshak-coral mr-2" />
+            <DialogTitle className="text-xl font-heading text-rakshak-indigo">
               Emergency Helplines
             </DialogTitle>
           </div>
-          <p className="text-gray-600 text-sm">
+          <p className="text-rakshak-indigo/70 text-sm font-body">
             Important numbers for emergency assistance
           </p>
         </DialogHeader>
 
         <div className="space-y-4">
           {helplines.map((category, categoryIndex) => (
-            <Card key={categoryIndex} className="border border-gray-200">
+            <Card key={categoryIndex} className="border border-rakshak-coral/20">
               <CardHeader className="pb-3">
-                <CardTitle className="text-lg text-purple-700">
+                <CardTitle className="text-lg text-rakshak-indigo font-heading">
                   {category.category}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 {category.numbers.map((helpline, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div key={index} className="flex items-center justify-between p-3 bg-rakshak-coral/5 rounded-lg">
                     <div className="flex-1">
-                      <h4 className="font-semibold text-gray-800">{helpline.name}</h4>
-                      <p className="text-sm text-gray-600">{helpline.description}</p>
-                      <p className="text-lg font-bold text-purple-600 mt-1">{helpline.number}</p>
+                      <h4 className="font-heading text-rakshak-indigo">{helpline.name}</h4>
+                      <p className="text-sm text-rakshak-indigo/70 font-body">{helpline.description}</p>
+                      <p className="text-lg font-heading text-rakshak-coral mt-1">{helpline.number}</p>
                     </div>
                     <Button
                       onClick={() => makeCall(helpline.number, helpline.name)}
-                      className="ml-4 bg-green-600 hover:bg-green-700 text-white"
+                      className="ml-4 bg-rakshak-teal hover:bg-rakshak-teal/90 text-white font-body"
                       size="sm"
                     >
                       <Phone className="h-4 w-4 mr-1" />
@@ -97,13 +97,13 @@ const HelplineNumbers = ({ isOpen, onClose }: HelplineNumbersProps) => {
             </Card>
           ))}
 
-          <Card className="border border-blue-200 bg-blue-50">
+          <Card className="border border-rakshak-teal/20 bg-rakshak-teal/5">
             <CardContent className="p-4">
               <div className="flex items-start gap-3">
-                <ExternalLink className="h-5 w-5 text-blue-600 mt-1 flex-shrink-0" />
+                <ExternalLink className="h-5 w-5 text-rakshak-teal mt-1 flex-shrink-0" />
                 <div>
-                  <h4 className="font-semibold text-blue-800 mb-2">Additional Resources</h4>
-                  <ul className="text-sm text-blue-700 space-y-1">
+                  <h4 className="font-heading text-rakshak-teal mb-2">Additional Resources</h4>
+                  <ul className="text-sm text-rakshak-teal/80 space-y-1 font-body">
                     <li>• National Crime Records Bureau (NCRB)</li>
                     <li>• State Women's Commission</li>
                     <li>• District Legal Services Authority</li>
@@ -115,7 +115,7 @@ const HelplineNumbers = ({ isOpen, onClose }: HelplineNumbersProps) => {
           </Card>
         </div>
 
-        <Button onClick={onClose} className="w-full mt-4">
+        <Button onClick={onClose} className="w-full mt-4 bg-rakshak-indigo hover:bg-rakshak-indigo/90 text-white font-body">
           Close
         </Button>
       </DialogContent>

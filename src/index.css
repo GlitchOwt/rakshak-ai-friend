@@ -1,90 +1,86 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Import Google Fonts for the brand typography */
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Quicksand:wght@300;400;500;600&display=swap');
-
-/* Rakshak.ai Brand Kit Colors and Design System */
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. */
 
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 210 24% 16%; /* Deep Indigo Blue for text */
+    --foreground: 222.2 84% 4.9%;
 
     --card: 0 0% 100%;
-    --card-foreground: 210 24% 16%;
+    --card-foreground: 222.2 84% 4.9%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 210 24% 16%;
+    --popover-foreground: 222.2 84% 4.9%;
 
-    --primary: 210 24% 16%; /* Deep Indigo Blue */
-    --primary-foreground: 0 0% 99%; /* Whisper White */
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
 
-    --secondary: 345 83% 70%; /* Soft Coral Pink */
-    --secondary-foreground: 210 24% 16%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
 
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
 
-    --accent: 174 62% 47%; /* Calm Teal */
-    --accent-foreground: 0 0% 99%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
 
-    --destructive: 0 63% 56%; /* Safety Red */
-    --destructive-foreground: 0 0% 99%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
 
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 345 83% 70%; /* Soft Coral Pink for focus rings */
+    --ring: 222.2 84% 4.9%;
 
-    --radius: 0.75rem; /* Slightly more rounded for approachability */
-
-    /* Rakshak.ai Brand Colors */
-    --rakshak-coral: 345 83% 70%; /* #FF6B81 - Soft Coral Pink */
-    --rakshak-indigo: 210 24% 16%; /* #2C3E50 - Deep Indigo Blue */
-    --rakshak-white: 0 0% 99%; /* #FDFEFE - Whisper White */
-    --rakshak-red: 0 63% 56%; /* #E74C3C - Safety Red */
-    --rakshak-teal: 174 62% 47%; /* #1ABC9C - Calm Teal */
+    --radius: 0.5rem;
 
     --sidebar-background: 0 0% 98%;
+
     --sidebar-foreground: 240 5.3% 26.1%;
+
     --sidebar-primary: 240 5.9% 10%;
+
     --sidebar-primary-foreground: 0 0% 98%;
+
     --sidebar-accent: 240 4.8% 95.9%;
+
     --sidebar-accent-foreground: 240 5.9% 10%;
+
     --sidebar-border: 220 13% 91%;
+
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
   .dark {
-    --background: 210 24% 16%;
-    --foreground: 0 0% 99%;
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
 
-    --card: 210 24% 16%;
-    --card-foreground: 0 0% 99%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
 
-    --popover: 210 24% 16%;
-    --popover-foreground: 0 0% 99%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
 
-    --primary: 0 0% 99%;
-    --primary-foreground: 210 24% 16%;
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
 
-    --secondary: 345 83% 70%;
-    --secondary-foreground: 210 24% 16%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
 
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
 
-    --accent: 174 62% 47%;
-    --accent-foreground: 0 0% 99%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
 
-    --destructive: 0 63% 56%;
-    --destructive-foreground: 0 0% 99%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
 
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 345 83% 70%;
+    --ring: 212.7 26.8% 83.9%;
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;
@@ -103,76 +99,5 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family: 'Poppins', sans-serif;
-  }
-
-  /* Brand Typography Classes */
-  .font-heading {
-    font-family: 'Poppins', sans-serif;
-    font-weight: 700;
-  }
-
-  .font-body {
-    font-family: 'Poppins', sans-serif;
-    font-weight: 400;
-  }
-
-  .font-chat {
-    font-family: 'Quicksand', sans-serif;
-    font-weight: 400;
-  }
-
-  /* Brand Color Utilities */
-  .bg-rakshak-coral {
-    background-color: hsl(var(--rakshak-coral));
-  }
-
-  .bg-rakshak-indigo {
-    background-color: hsl(var(--rakshak-indigo));
-  }
-
-  .bg-rakshak-white {
-    background-color: hsl(var(--rakshak-white));
-  }
-
-  .bg-rakshak-red {
-    background-color: hsl(var(--rakshak-red));
-  }
-
-  .bg-rakshak-teal {
-    background-color: hsl(var(--rakshak-teal));
-  }
-
-  .text-rakshak-coral {
-    color: hsl(var(--rakshak-coral));
-  }
-
-  .text-rakshak-indigo {
-    color: hsl(var(--rakshak-indigo));
-  }
-
-  .text-rakshak-red {
-    color: hsl(var(--rakshak-red));
-  }
-
-  .text-rakshak-teal {
-    color: hsl(var(--rakshak-teal));
-  }
-
-  .border-rakshak-coral {
-    border-color: hsl(var(--rakshak-coral));
-  }
-
-  .border-rakshak-indigo {
-    border-color: hsl(var(--rakshak-indigo));
-  }
-
-  /* Brand Gradients */
-  .bg-rakshak-gradient {
-    background: linear-gradient(135deg, hsl(var(--rakshak-coral)) 0%, hsl(var(--rakshak-indigo)) 100%);
-  }
-
-  .bg-rakshak-warm-gradient {
-    background: linear-gradient(135deg, hsl(var(--rakshak-coral) / 0.1) 0%, hsl(var(--rakshak-white)) 100%);
   }
 }

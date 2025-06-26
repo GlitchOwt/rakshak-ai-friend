@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +10,8 @@ import EmergencyContactsModal from "@/components/EmergencyContactsModal";
 import LegalChatbot from "@/components/LegalChatbot";
 import SOSButton from "@/components/SOSButton";
 import HelplineNumbers from "@/components/HelplineNumbers";
+import VoiceCallInterface from "@/components/VoiceCallInterface";
+import { useSOSIntegration } from "@/hooks/useSOSIntegration";
 
 const Index = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -20,9 +21,10 @@ const Index = () => {
   const [showLegalChat, setShowLegalChat] = useState(false);
   const [showHelplines, setShowHelplines] = useState(false);
   const [travelingAlone, setTravelingAlone] = useState<boolean | null>(null);
-  const [callInitiated, setCallInitiated] = useState(false);
-  const [countdown, setCountdown] = useState(5);
+  const [showVoiceCall, setShowVoiceCall] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
   const { toast } = useToast();
+  const { sendSOS, sendSafeArrivalNotification } = useSOSIntegration();
 
   useEffect(() => {
     // Check if user is already authenticated
@@ -34,29 +36,51 @@ const Index = () => {
     }
   }, []);
 
-  useEffect(() => {
-    if (travelingAlone === true && !callInitiated) {
-      const timer = setInterval(() => {
-        setCountdown((prev) => {
-          if (prev <= 1) {
-            clearInterval(timer);
-            initiateCall();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-      return () => clearInterval(timer);
+  const handleTriggerWordDetected = async () => {
+    const userData = JSON.parse(localStorage.getItem('rakshak_user') || '{}');
+    
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const { latitude, longitude } = position.coords;
+          await sendSOS({
+            userName: userData.name || 'User',
+            location: { latitude, longitude },
+            emergencyContacts: userData.emergencyContacts || [],
+            triggerReason: 'voice_trigger'
+          });
+        },
+        async () => {
+          await sendSOS({
+            userName: userData.name || 'User',
+            location: null,
+            emergencyContacts: userData.emergencyContacts || [],
+            triggerReason: 'voice_trigger'
+          });
+        }
+      );
     }
-  }, [travelingAlone, callInitiated]);
+  };
 
-  const initiateCall = () => {
-    setCallInitiated(true);
-    toast({
-      title: "AI Companion Activated",
-      description: "Your safety companion is now active and ready to chat.",
-      duration: 3000,
-    });
+  const handleSafeArrival = async () => {
+    const userData = JSON.parse(localStorage.getItem('rakshak_user') || '{}');
+    await sendSafeArrivalNotification(
+      userData.name || 'User',
+      userData.emergencyContacts || []
+    );
+  };
+
+  const handleCallEnd = () => {
+    setShowVoiceCall(false);
+    setShowFeedback(true);
+    
+    // Auto-hide feedback after 10 seconds
+    setTimeout(() => setShowFeedback(false), 10000);
+  };
+
+  const handleStartVoiceCompanion = () => {
+    setTravelingAlone(true);
+    setShowVoiceCall(true);
   };
 
   const handleAuthSuccess = (userData: any) => {
@@ -104,6 +128,7 @@ const Index = () => {
           <p className="text-gray-600 text-sm">Your trusted safety companion</p>
         </div>
 
+        {/* Travel Status Question */}
         {travelingAlone === null && (
           <Card className="mb-6 border-0 shadow-xl bg-white/80 backdrop-blur-sm">
             <CardHeader className="text-center pb-4">
@@ -116,7 +141,7 @@ const Index = () => {
             </CardHeader>
             <CardContent className="flex gap-4">
               <Button 
-                onClick={() => setTravelingAlone(true)}
+                onClick={handleStartVoiceCompanion}
                 className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white py-6 text-lg rounded-xl shadow-lg"
               >
                 Yes
@@ -132,35 +157,53 @@ const Index = () => {
           </Card>
         )}
 
-        {travelingAlone === true && (
-          <div className="space-y-6">
-            {!callInitiated ? (
-              <Card className="border-0 shadow-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white">
-                <CardContent className="text-center p-6">
-                  <h3 className="text-xl font-semibold mb-2">Initiating AI Companion</h3>
-                  <p className="mb-4">Your safety call will begin in {countdown} seconds</p>
-                  <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto"></div>
-                </CardContent>
-              </Card>
-            ) : (
-              <Card className="border-0 shadow-xl bg-green-50 border-green-200">
-                <CardContent className="text-center p-6">
-                  <div className="w-4 h-4 bg-green-500 rounded-full animate-pulse mx-auto mb-3"></div>
-                  <h3 className="text-xl font-semibold text-green-800 mb-2">AI Companion Active</h3>
-                  <p className="text-green-700">Your safety companion is listening and ready to help</p>
-                  <Button 
-                    onClick={() => setCallInitiated(false)}
-                    variant="outline"
-                    className="mt-4 border-green-300 text-green-700 hover:bg-green-100"
-                  >
-                    End Conversation
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
+        {/* Voice Call Interface */}
+        {showVoiceCall && (
+          <div className="mb-6">
+            <VoiceCallInterface
+              onTriggerWordDetected={handleTriggerWordDetected}
+              onSafeArrival={handleSafeArrival}
+              onCallEnd={handleCallEnd}
+            />
           </div>
         )}
 
+        {/* Post-Call Feedback */}
+        {showFeedback && (
+          <Card className="mb-6 border-0 shadow-xl bg-white/90 backdrop-blur-sm">
+            <CardHeader className="text-center">
+              <CardTitle className="text-lg">How was your experience?</CardTitle>
+            </CardHeader>
+            <CardContent className="text-center">
+              <div className="flex justify-center space-x-2 mb-4">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    className="text-2xl hover:scale-110 transition-transform"
+                    onClick={() => {
+                      toast({
+                        title: "Thank you!",
+                        description: "Your feedback helps us improve Rakshak.ai",
+                      });
+                      setShowFeedback(false);
+                    }}
+                  >
+                    ⭐
+                  </button>
+                ))}
+              </div>
+              <Button
+                variant="ghost"
+                onClick={() => setShowFeedback(false)}
+                className="text-sm text-gray-500"
+              >
+                Skip
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* SOS Button for non-alone users */}
         {travelingAlone === false && (
           <div className="mb-6">
             <SOSButton />
@@ -213,7 +256,11 @@ const Index = () => {
 
         {/* Quick Action */}
         <Button 
-          onClick={() => setTravelingAlone(null)}
+          onClick={() => {
+            setTravelingAlone(null);
+            setShowVoiceCall(false);
+            setShowFeedback(false);
+          }}
           variant="ghost"
           className="w-full text-gray-600 hover:text-purple-600"
         >

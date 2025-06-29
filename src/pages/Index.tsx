@@ -24,6 +24,7 @@ const Index = () => {
   const [showVoiceCall, setShowVoiceCall] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
   const [autoStartCall, setAutoStartCall] = useState(false);
+  const [userDataComplete, setUserDataComplete] = useState(false);
   const { toast } = useToast();
   const { sendSOS, sendSafeArrivalNotification } = useSOSIntegration();
 
@@ -32,6 +33,11 @@ const Index = () => {
     const userData = localStorage.getItem('rakshak_user');
     if (userData) {
       setIsAuthenticated(true);
+      // Check if user data is complete (has emergency contacts)
+      const parsedData = JSON.parse(userData);
+      if (parsedData.emergencyContacts && parsedData.emergencyContacts.length > 0) {
+        setUserDataComplete(true);
+      }
     } else {
       setShowAuthModal(true);
     }
@@ -81,13 +87,24 @@ const Index = () => {
   };
 
   const handleStartVoiceCompanion = () => {
+    // Check if user data is complete first
+    if (!userDataComplete) {
+      toast({
+        title: "Complete Your Profile",
+        description: "Please add your emergency contacts before starting the AI companion.",
+        variant: "destructive",
+      });
+      setShowOnboarding(true);
+      return;
+    }
+
     setTravelingAlone(true);
     setShowVoiceCall(true);
-    setAutoStartCall(true); // This will trigger the auto-start
+    setAutoStartCall(true);
     
     toast({
       title: "🤖 AI Companion Activating",
-      description: "Your phone will ring within 5-10 seconds. Answer to start chatting with your AI safety companion!",
+      description: "Your Make.com automation will trigger ElevenLabs to call you within 10-30 seconds!",
       duration: 8000,
     });
   };
@@ -99,16 +116,28 @@ const Index = () => {
     // Check if this is a new user (no emergency contacts)
     if (!userData.emergencyContacts || userData.emergencyContacts.length === 0) {
       setShowOnboarding(true);
+      setUserDataComplete(false);
+    } else {
+      setUserDataComplete(true);
     }
   };
 
   const handleOnboardingComplete = () => {
     setShowOnboarding(false);
+    setUserDataComplete(true);
     toast({
-      title: "Welcome to Rakshak.ai",
-      description: "Your safety companion is ready to help you feel secure.",
+      title: "Profile Complete!",
+      description: "Your safety companion is ready. You can now start the AI companion when traveling alone.",
       duration: 4000,
     });
+  };
+
+  const handleContactsUpdated = () => {
+    // Check if user now has emergency contacts
+    const userData = JSON.parse(localStorage.getItem('rakshak_user') || '{}');
+    if (userData.emergencyContacts && userData.emergencyContacts.length > 0) {
+      setUserDataComplete(true);
+    }
   };
 
   if (!isAuthenticated) {
@@ -137,8 +166,30 @@ const Index = () => {
           <p className="text-gray-600 text-sm">Your trusted safety companion</p>
         </div>
 
-        {/* Travel Status Question */}
-        {travelingAlone === null && (
+        {/* Profile Completion Status */}
+        {!userDataComplete && (
+          <Card className="mb-6 border-0 shadow-xl bg-yellow-50 border-yellow-200">
+            <CardHeader className="text-center pb-4">
+              <CardTitle className="text-lg text-yellow-800 mb-2">
+                Complete Your Safety Profile
+              </CardTitle>
+              <CardDescription className="text-yellow-700">
+                Add your emergency contacts to use the AI safety companion
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                onClick={() => setShowOnboarding(true)}
+                className="w-full bg-yellow-600 hover:bg-yellow-700 text-white"
+              >
+                Add Emergency Contacts
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Travel Status Question - Only show if profile is complete */}
+        {userDataComplete && travelingAlone === null && (
           <Card className="mb-6 border-0 shadow-xl bg-white/80 backdrop-blur-sm">
             <CardHeader className="text-center pb-4">
               <CardTitle className="text-xl text-gray-800 mb-2">
@@ -224,12 +275,17 @@ const Index = () => {
         <div className="grid grid-cols-2 gap-4 mb-6">
           <Card 
             className="border-0 shadow-lg bg-white/70 backdrop-blur-sm hover:shadow-xl transition-shadow cursor-pointer"
-            onClick={() => setShowContactsModal(true)}
+            onClick={() => {
+              setShowContactsModal(true);
+            }}
           >
             <CardContent className="p-6 text-center">
               <Users className="h-8 w-8 text-purple-600 mx-auto mb-3" />
               <h3 className="font-semibold text-gray-800 mb-1">Emergency</h3>
               <p className="text-sm text-gray-600">Contacts</p>
+              {!userDataComplete && (
+                <Badge variant="destructive" className="text-xs mt-2">Required</Badge>
+              )}
             </CardContent>
           </Card>
 
@@ -287,7 +343,10 @@ const Index = () => {
       
       <EmergencyContactsModal 
         isOpen={showContactsModal}
-        onClose={() => setShowContactsModal(false)}
+        onClose={() => {
+          setShowContactsModal(false);
+          handleContactsUpdated();
+        }}
       />
 
       <LegalChatbot 

@@ -24,7 +24,7 @@ const Index = () => {
   const [showVoiceCall, setShowVoiceCall] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
   const [autoStartCall, setAutoStartCall] = useState(false);
-  const [userDataComplete, setUserDataComplete] = useState(false);
+  const [hasEmergencyContacts, setHasEmergencyContacts] = useState(false);
   const { toast } = useToast();
   const { sendSOS, sendSafeArrivalNotification } = useSOSIntegration();
 
@@ -33,10 +33,13 @@ const Index = () => {
     const userData = localStorage.getItem('rakshak_user');
     if (userData) {
       setIsAuthenticated(true);
-      // Check if user data is complete (has emergency contacts)
+      // Check if user has emergency contacts
       const parsedData = JSON.parse(userData);
       if (parsedData.emergencyContacts && parsedData.emergencyContacts.length > 0) {
-        setUserDataComplete(true);
+        setHasEmergencyContacts(true);
+      } else {
+        // Show onboarding immediately if no emergency contacts
+        setShowOnboarding(true);
       }
     } else {
       setShowAuthModal(true);
@@ -87,17 +90,6 @@ const Index = () => {
   };
 
   const handleStartVoiceCompanion = () => {
-    // Check if user data is complete first
-    if (!userDataComplete) {
-      toast({
-        title: "Complete Your Profile",
-        description: "Please add your emergency contacts before starting the AI companion.",
-        variant: "destructive",
-      });
-      setShowOnboarding(true);
-      return;
-    }
-
     setTravelingAlone(true);
     setShowVoiceCall(true);
     setAutoStartCall(true);
@@ -113,21 +105,17 @@ const Index = () => {
     setIsAuthenticated(true);
     setShowAuthModal(false);
     
-    // Check if this is a new user (no emergency contacts)
-    if (!userData.emergencyContacts || userData.emergencyContacts.length === 0) {
-      setShowOnboarding(true);
-      setUserDataComplete(false);
-    } else {
-      setUserDataComplete(true);
-    }
+    // Always show onboarding for emergency contacts after sign-in
+    setShowOnboarding(true);
+    setHasEmergencyContacts(false);
   };
 
   const handleOnboardingComplete = () => {
     setShowOnboarding(false);
-    setUserDataComplete(true);
+    setHasEmergencyContacts(true);
     toast({
-      title: "Profile Complete!",
-      description: "Your safety companion is ready. You can now start the AI companion when traveling alone.",
+      title: "Emergency Contacts Added!",
+      description: "Your safety profile is complete. You can now use the AI companion.",
       duration: 4000,
     });
   };
@@ -136,7 +124,7 @@ const Index = () => {
     // Check if user now has emergency contacts
     const userData = JSON.parse(localStorage.getItem('rakshak_user') || '{}');
     if (userData.emergencyContacts && userData.emergencyContacts.length > 0) {
-      setUserDataComplete(true);
+      setHasEmergencyContacts(true);
     }
   };
 
@@ -166,30 +154,30 @@ const Index = () => {
           <p className="text-gray-600 text-sm">Your trusted safety companion</p>
         </div>
 
-        {/* Profile Completion Status */}
-        {!userDataComplete && (
-          <Card className="mb-6 border-0 shadow-xl bg-yellow-50 border-yellow-200">
+        {/* Emergency Contacts Required - Show if no contacts */}
+        {!hasEmergencyContacts && (
+          <Card className="mb-6 border-0 shadow-xl bg-gradient-to-r from-orange-400 to-red-500 text-white">
             <CardHeader className="text-center pb-4">
-              <CardTitle className="text-lg text-yellow-800 mb-2">
-                Complete Your Safety Profile
+              <CardTitle className="text-xl mb-2">
+                🚨 Emergency Contacts Required
               </CardTitle>
-              <CardDescription className="text-yellow-700">
-                Add your emergency contacts to use the AI safety companion
+              <CardDescription className="text-white/90">
+                Please add your emergency contacts before using the AI safety companion
               </CardDescription>
             </CardHeader>
             <CardContent>
               <Button 
                 onClick={() => setShowOnboarding(true)}
-                className="w-full bg-yellow-600 hover:bg-yellow-700 text-white"
+                className="w-full bg-white text-red-600 hover:bg-gray-100 py-3 text-lg font-semibold"
               >
-                Add Emergency Contacts
+                Add Emergency Contacts Now
               </Button>
             </CardContent>
           </Card>
         )}
 
-        {/* Travel Status Question - Only show if profile is complete */}
-        {userDataComplete && travelingAlone === null && (
+        {/* Travel Status Question - Only show if emergency contacts are added */}
+        {hasEmergencyContacts && travelingAlone === null && (
           <Card className="mb-6 border-0 shadow-xl bg-white/80 backdrop-blur-sm">
             <CardHeader className="text-center pb-4">
               <CardTitle className="text-xl text-gray-800 mb-2">
@@ -271,68 +259,68 @@ const Index = () => {
           </div>
         )}
 
-        {/* Features Grid */}
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          <Card 
-            className="border-0 shadow-lg bg-white/70 backdrop-blur-sm hover:shadow-xl transition-shadow cursor-pointer"
-            onClick={() => {
-              setShowContactsModal(true);
-            }}
-          >
-            <CardContent className="p-6 text-center">
-              <Users className="h-8 w-8 text-purple-600 mx-auto mb-3" />
-              <h3 className="font-semibold text-gray-800 mb-1">Emergency</h3>
-              <p className="text-sm text-gray-600">Contacts</p>
-              {!userDataComplete && (
-                <Badge variant="destructive" className="text-xs mt-2">Required</Badge>
-              )}
-            </CardContent>
-          </Card>
+        {/* Features Grid - Only show if emergency contacts are added */}
+        {hasEmergencyContacts && (
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            <Card 
+              className="border-0 shadow-lg bg-white/70 backdrop-blur-sm hover:shadow-xl transition-shadow cursor-pointer"
+              onClick={() => setShowContactsModal(true)}
+            >
+              <CardContent className="p-6 text-center">
+                <Users className="h-8 w-8 text-purple-600 mx-auto mb-3" />
+                <h3 className="font-semibold text-gray-800 mb-1">Emergency</h3>
+                <p className="text-sm text-gray-600">Contacts</p>
+                <Badge variant="secondary" className="text-xs mt-2">✓ Added</Badge>
+              </CardContent>
+            </Card>
 
-          <Card 
-            className="border-0 shadow-lg bg-white/70 backdrop-blur-sm hover:shadow-xl transition-shadow cursor-pointer"
-            onClick={() => setShowLegalChat(true)}
-          >
-            <CardContent className="p-6 text-center">
-              <MessageCircle className="h-8 w-8 text-pink-600 mx-auto mb-3" />
-              <h3 className="font-semibold text-gray-800 mb-1">Legal</h3>
-              <p className="text-sm text-gray-600">Support</p>
-            </CardContent>
-          </Card>
+            <Card 
+              className="border-0 shadow-lg bg-white/70 backdrop-blur-sm hover:shadow-xl transition-shadow cursor-pointer"
+              onClick={() => setShowLegalChat(true)}
+            >
+              <CardContent className="p-6 text-center">
+                <MessageCircle className="h-8 w-8 text-pink-600 mx-auto mb-3" />
+                <h3 className="font-semibold text-gray-800 mb-1">Legal</h3>
+                <p className="text-sm text-gray-600">Support</p>
+              </CardContent>
+            </Card>
 
-          <Card 
-            className="border-0 shadow-lg bg-white/70 backdrop-blur-sm hover:shadow-xl transition-shadow cursor-pointer"
-            onClick={() => setShowHelplines(true)}
-          >
-            <CardContent className="p-6 text-center">
-              <Phone className="h-8 w-8 text-indigo-600 mx-auto mb-3" />
-              <h3 className="font-semibold text-gray-800 mb-1">Emergency</h3>
-              <p className="text-sm text-gray-600">Helplines</p>
-            </CardContent>
-          </Card>
+            <Card 
+              className="border-0 shadow-lg bg-white/70 backdrop-blur-sm hover:shadow-xl transition-shadow cursor-pointer"
+              onClick={() => setShowHelplines(true)}
+            >
+              <CardContent className="p-6 text-center">
+                <Phone className="h-8 w-8 text-indigo-600 mx-auto mb-3" />
+                <h3 className="font-semibold text-gray-800 mb-1">Emergency</h3>
+                <p className="text-sm text-gray-600">Helplines</p>
+              </CardContent>
+            </Card>
 
-          <Card className="border-0 shadow-lg bg-white/70 backdrop-blur-sm">
-            <CardContent className="p-6 text-center">
-              <MapPin className="h-8 w-8 text-green-600 mx-auto mb-3" />
-              <h3 className="font-semibold text-gray-800 mb-1">Location</h3>
-              <Badge variant="secondary" className="text-xs">Active</Badge>
-            </CardContent>
-          </Card>
-        </div>
+            <Card className="border-0 shadow-lg bg-white/70 backdrop-blur-sm">
+              <CardContent className="p-6 text-center">
+                <MapPin className="h-8 w-8 text-green-600 mx-auto mb-3" />
+                <h3 className="font-semibold text-gray-800 mb-1">Location</h3>
+                <Badge variant="secondary" className="text-xs">Active</Badge>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Quick Action */}
-        <Button 
-          onClick={() => {
-            setTravelingAlone(null);
-            setShowVoiceCall(false);
-            setAutoStartCall(false);
-            setShowFeedback(false);
-          }}
-          variant="ghost"
-          className="w-full text-gray-600 hover:text-purple-600"
-        >
-          Change Travel Status
-        </Button>
+        {hasEmergencyContacts && (
+          <Button 
+            onClick={() => {
+              setTravelingAlone(null);
+              setShowVoiceCall(false);
+              setAutoStartCall(false);
+              setShowFeedback(false);
+            }}
+            variant="ghost"
+            className="w-full text-gray-600 hover:text-purple-600"
+          >
+            Change Travel Status
+          </Button>
+        )}
       </div>
 
       {/* Modals */}

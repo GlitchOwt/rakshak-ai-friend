@@ -8,12 +8,14 @@ import { useToast } from "@/hooks/use-toast";
 import { twilioService } from "@/services/twilioService";
 
 interface TwilioVoiceInterfaceProps {
+  autoStart?: boolean;
   onEmergencyTriggered?: () => void;
   onSafeArrival?: () => void;
   onCallEnd?: () => void;
 }
 
 const TwilioVoiceInterface = ({ 
+  autoStart = false,
   onEmergencyTriggered, 
   onSafeArrival,
   onCallEnd 
@@ -25,6 +27,7 @@ const TwilioVoiceInterface = ({
   const [isConnected, setIsConnected] = useState(false);
   const [serviceStatus, setServiceStatus] = useState<{ [key: string]: boolean }>({});
   const [isTestingWebhooks, setIsTestingWebhooks] = useState(false);
+  const [hasAutoStarted, setHasAutoStarted] = useState(false);
 
   const { 
     isCallActive, 
@@ -46,6 +49,7 @@ const TwilioVoiceInterface = ({
       setEmergencyTriggered(false);
       setSafeArrivalConfirmed(false);
       setIsConnected(false);
+      setHasAutoStarted(false);
       onCallEnd?.();
     },
     onEmergencyTriggered: (triggerWord) => {
@@ -68,6 +72,24 @@ const TwilioVoiceInterface = ({
       });
     }
   });
+
+  // Auto-start call when autoStart prop is true
+  useEffect(() => {
+    if (autoStart && !hasAutoStarted && !isCallActive && !isInitiating) {
+      const criticalServicesReady = serviceStatus.elevenLabsConfigured && serviceStatus.triggerCall;
+      
+      if (criticalServicesReady) {
+        setHasAutoStarted(true);
+        startSafetyCall();
+      } else {
+        // If services aren't ready, check again in 1 second
+        const timer = setTimeout(() => {
+          setServiceStatus(twilioService.getServiceStatus());
+        }, 1000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [autoStart, hasAutoStarted, isCallActive, isInitiating, serviceStatus, startSafetyCall]);
 
   // Check service status on mount
   useEffect(() => {
@@ -137,8 +159,10 @@ const TwilioVoiceInterface = ({
             <CardTitle className="text-2xl">AI Safety Companion</CardTitle>
           </div>
           <p className="opacity-90 text-sm">
-            Start a voice call with your AI safety companion powered by ElevenLabs. 
-            The AI will chat with you naturally and monitor for emergency situations.
+            {autoStart ? 
+              "Your AI safety companion is starting automatically..." :
+              "Start a voice call with your AI safety companion powered by ElevenLabs."
+            }
           </p>
         </CardHeader>
         <CardContent className="text-center space-y-4">
@@ -168,16 +192,30 @@ const TwilioVoiceInterface = ({
             </div>
           </div>
 
-          <Button 
-            onClick={startSafetyCall}
-            className="bg-white text-purple-600 hover:bg-gray-100 px-8 py-3 text-lg font-semibold rounded-xl shadow-lg w-full"
-            disabled={isInitiating || !criticalServicesReady}
-          >
-            <Phone className="h-5 w-5 mr-2" />
-            {isInitiating ? 'Connecting to AI...' : 'Start AI Safety Call'}
-          </Button>
+          {!autoStart && (
+            <Button 
+              onClick={startSafetyCall}
+              className="bg-white text-purple-600 hover:bg-gray-100 px-8 py-3 text-lg font-semibold rounded-xl shadow-lg w-full"
+              disabled={isInitiating || !criticalServicesReady}
+            >
+              <Phone className="h-5 w-5 mr-2" />
+              {isInitiating ? 'Connecting to AI...' : 'Start AI Safety Call'}
+            </Button>
+          )}
 
-          {!criticalServicesReady && (
+          {autoStart && !criticalServicesReady && (
+            <div className="bg-yellow-500/20 border border-yellow-500/30 rounded-lg p-3 text-sm">
+              <div className="flex items-center justify-center mb-2">
+                <AlertCircle className="h-4 w-4 mr-2 text-yellow-300" />
+                <span className="font-semibold text-yellow-200">Waiting for Services</span>
+              </div>
+              <div className="text-xs text-yellow-100">
+                <p>Checking service configuration...</p>
+              </div>
+            </div>
+          )}
+
+          {!criticalServicesReady && !autoStart && (
             <div className="bg-yellow-500/20 border border-yellow-500/30 rounded-lg p-3 text-sm">
               <div className="flex items-center justify-center mb-2">
                 <AlertCircle className="h-4 w-4 mr-2 text-yellow-300" />
@@ -210,7 +248,7 @@ const TwilioVoiceInterface = ({
           </div>
 
           {/* Development Test Buttons */}
-          {process.env.NODE_ENV === 'development' && (
+          {process.env.NODE_ENV === 'development' && !autoStart && (
             <div className="space-y-2">
               <Button
                 onClick={handleTestWebhooks}

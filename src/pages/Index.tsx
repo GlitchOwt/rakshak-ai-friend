@@ -23,7 +23,7 @@ const Index = () => {
   const [travelingAlone, setTravelingAlone] = useState<boolean | null>(null);
   const [showVoiceCall, setShowVoiceCall] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
-  const [autoCallInitiated, setAutoCallInitiated] = useState(false);
+  const [autoStartCall, setAutoStartCall] = useState(false);
   const { toast } = useToast();
   const { sendSOS, sendSafeArrivalNotification } = useSOSIntegration();
 
@@ -73,7 +73,7 @@ const Index = () => {
 
   const handleCallEnd = () => {
     setShowVoiceCall(false);
-    setAutoCallInitiated(false);
+    setAutoStartCall(false);
     setShowFeedback(true);
     
     // Auto-hide feedback after 10 seconds
@@ -82,8 +82,8 @@ const Index = () => {
 
   const handleStartVoiceCompanion = () => {
     setTravelingAlone(true);
-    setAutoCallInitiated(true);
     setShowVoiceCall(true);
+    setAutoStartCall(true); // This will trigger the auto-start
     
     toast({
       title: "🤖 AI Companion Activating",
@@ -167,9 +167,10 @@ const Index = () => {
         )}
 
         {/* Voice Call Interface - Auto-initiated */}
-        {showVoiceCall && autoCallInitiated && (
+        {showVoiceCall && (
           <div className="mb-6">
             <TwilioVoiceInterface
+              autoStart={autoStartCall}
               onEmergencyTriggered={handleTriggerWordDetected}
               onSafeArrival={handleSafeArrival}
               onCallEnd={handleCallEnd}
@@ -268,7 +269,7 @@ const Index = () => {
           onClick={() => {
             setTravelingAlone(null);
             setShowVoiceCall(false);
-            setAutoCallInitiated(false);
+            setAutoStartCall(false);
             setShowFeedback(false);
           }}
           variant="ghost"

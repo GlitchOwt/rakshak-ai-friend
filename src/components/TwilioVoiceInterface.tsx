@@ -2,9 +2,10 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Phone, PhoneOff, Shield, AlertTriangle, CheckCircle, Bot, Mic } from "lucide-react";
+import { Phone, PhoneOff, Shield, AlertTriangle, CheckCircle, Bot, Mic, TestTube, AlertCircle } from "lucide-react";
 import { useTwilioVoiceCall } from "@/hooks/useTwilioVoiceCall";
 import { useToast } from "@/hooks/use-toast";
+import { twilioService } from "@/services/twilioService";
 
 interface TwilioVoiceInterfaceProps {
   onEmergencyTriggered?: () => void;
@@ -22,6 +23,8 @@ const TwilioVoiceInterface = ({
   const [emergencyTriggered, setEmergencyTriggered] = useState(false);
   const [safeArrivalConfirmed, setSafeArrivalConfirmed] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
+  const [serviceStatus, setServiceStatus] = useState<{ [key: string]: boolean }>({});
+  const [isTestingWebhooks, setIsTestingWebhooks] = useState(false);
 
   const { 
     isCallActive, 
@@ -50,7 +53,7 @@ const TwilioVoiceInterface = ({
       onEmergencyTriggered?.();
       toast({
         title: "🚨 Emergency Alert Sent",
-        description: `Trigger word "${triggerWord}" detected. Emergency contacts have been notified with your location.`,
+        description: `Trigger word "${triggerWord}" detected. Emergency contacts have been notified with your location via Make.com automation.`,
         variant: "destructive",
         duration: 10000,
       });
@@ -60,11 +63,16 @@ const TwilioVoiceInterface = ({
       onSafeArrival?.();
       toast({
         title: "✅ Safe Arrival Confirmed",
-        description: `Safe word "${safeWord}" detected. Your emergency contacts have been notified you're safe.`,
+        description: `Safe word "${safeWord}" detected. Your emergency contacts have been notified you're safe via Make.com automation.`,
         duration: 8000,
       });
     }
   });
+
+  // Check service status on mount
+  useEffect(() => {
+    setServiceStatus(twilioService.getServiceStatus());
+  }, []);
 
   // Call duration timer
   useEffect(() => {
@@ -93,6 +101,33 @@ const TwilioVoiceInterface = ({
     simulateTranscriptProcessing("I reached home safe");
   };
 
+  const handleTestWebhooks = async () => {
+    setIsTestingWebhooks(true);
+    try {
+      await twilioService.testWebhooks();
+      toast({
+        title: "🧪 Webhook Tests Completed",
+        description: "Check the browser console for detailed test results. Some tests may have failed - this is normal if Make.com scenarios aren't fully configured.",
+        duration: 8000,
+      });
+    } catch (error) {
+      console.error('Webhook test error:', error);
+      toast({
+        title: "⚠️ Webhook Tests Completed with Issues",
+        description: "Some webhook tests failed. Check the browser console for detailed error information. This is expected if Make.com scenarios aren't configured yet.",
+        variant: "destructive",
+        duration: 10000,
+      });
+    } finally {
+      setIsTestingWebhooks(false);
+    }
+  };
+
+  // Service status indicator
+  const getStatusColor = (status: boolean) => status ? 'bg-green-500' : 'bg-red-500';
+  const allServicesReady = Object.values(serviceStatus).every(status => status);
+  const criticalServicesReady = serviceStatus.elevenLabsConfigured && serviceStatus.triggerCall;
+
   if (!isCallActive && !isInitiating) {
     return (
       <Card className="border-0 shadow-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white">
@@ -107,14 +142,58 @@ const TwilioVoiceInterface = ({
           </p>
         </CardHeader>
         <CardContent className="text-center space-y-4">
+          {/* Service Status */}
+          <div className="bg-white/10 rounded-lg p-3 text-xs">
+            <div className="flex items-center justify-center mb-2">
+              <Shield className="h-4 w-4 mr-2" />
+              <span className="font-semibold">Service Status</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="flex items-center">
+                <div className={`w-2 h-2 rounded-full mr-2 ${getStatusColor(serviceStatus.elevenLabsConfigured)}`}></div>
+                ElevenLabs
+              </div>
+              <div className="flex items-center">
+                <div className={`w-2 h-2 rounded-full mr-2 ${getStatusColor(serviceStatus.twilioConfigured)}`}></div>
+                Twilio
+              </div>
+              <div className="flex items-center">
+                <div className={`w-2 h-2 rounded-full mr-2 ${getStatusColor(serviceStatus.triggerCall)}`}></div>
+                Call Trigger
+              </div>
+              <div className="flex items-center">
+                <div className={`w-2 h-2 rounded-full mr-2 ${getStatusColor(serviceStatus.emergencyAlert)}`}></div>
+                Emergency
+              </div>
+            </div>
+          </div>
+
           <Button 
             onClick={startSafetyCall}
             className="bg-white text-purple-600 hover:bg-gray-100 px-8 py-3 text-lg font-semibold rounded-xl shadow-lg w-full"
-            disabled={isInitiating}
+            disabled={isInitiating || !criticalServicesReady}
           >
             <Phone className="h-5 w-5 mr-2" />
             {isInitiating ? 'Connecting to AI...' : 'Start AI Safety Call'}
           </Button>
+
+          {!criticalServicesReady && (
+            <div className="bg-yellow-500/20 border border-yellow-500/30 rounded-lg p-3 text-sm">
+              <div className="flex items-center justify-center mb-2">
+                <AlertCircle className="h-4 w-4 mr-2 text-yellow-300" />
+                <span className="font-semibold text-yellow-200">Configuration Required</span>
+              </div>
+              <div className="text-xs text-yellow-100 space-y-1">
+                {!serviceStatus.elevenLabsConfigured && (
+                  <p>• ElevenLabs API key and Agent ID needed</p>
+                )}
+                {!serviceStatus.triggerCall && (
+                  <p>• Make.com call trigger webhook URL required</p>
+                )}
+                <p className="mt-2 opacity-75">Check your environment variables (.env file)</p>
+              </div>
+            </div>
+          )}
           
           <div className="bg-white/10 rounded-lg p-4 text-sm space-y-2">
             <div className="flex items-center justify-center mb-2">
@@ -126,9 +205,25 @@ const TwilioVoiceInterface = ({
               <p>• ElevenLabs AI will start a friendly conversation</p>
               <p>• Say "help" or "danger" if you need emergency assistance</p>
               <p>• Say "reached home safe" when you arrive safely</p>
-              <p>• Emergency contacts will be automatically notified</p>
+              <p>• Emergency contacts will be automatically notified via WhatsApp</p>
             </div>
           </div>
+
+          {/* Development Test Buttons */}
+          {process.env.NODE_ENV === 'development' && (
+            <div className="space-y-2">
+              <Button
+                onClick={handleTestWebhooks}
+                variant="outline"
+                size="sm"
+                className="bg-white/20 border-white/30 text-white hover:bg-white/30 w-full"
+                disabled={isTestingWebhooks}
+              >
+                <TestTube className="h-4 w-4 mr-2" />
+                {isTestingWebhooks ? 'Testing Webhooks...' : 'Test Make.com Webhooks'}
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     );
@@ -140,9 +235,11 @@ const TwilioVoiceInterface = ({
         <CardContent className="p-8 text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
           <h3 className="text-xl font-semibold mb-2">Connecting to AI Companion</h3>
-          <p className="opacity-90 mb-4">Setting up ElevenLabs conversation...</p>
-          <div className="bg-white/10 rounded-lg p-3 text-sm">
-            <p>Your phone should ring any moment...</p>
+          <p className="opacity-90 mb-4">Setting up ElevenLabs conversation and triggering Twilio call via Make.com...</p>
+          <div className="bg-white/10 rounded-lg p-3 text-sm space-y-1">
+            <p>📞 Your phone should ring any moment...</p>
+            <p>🤖 ElevenLabs agent is ready to chat</p>
+            <p>🔗 Make.com automation is processing</p>
           </div>
         </CardContent>
       </Card>
@@ -250,6 +347,7 @@ const TwilioVoiceInterface = ({
           <p>🚨 Say <strong>"help"</strong> or <strong>"danger"</strong> for emergency alerts</p>
           <p>✅ Say <strong>"reached home safe"</strong> when you arrive</p>
           <p>💬 Speak naturally - the AI will keep you company!</p>
+          <p>🔗 <strong>Make.com</strong> handles all WhatsApp notifications</p>
         </div>
       </CardContent>
     </Card>

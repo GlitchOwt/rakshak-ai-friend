@@ -28,11 +28,29 @@ export class ElevenLabsService {
     return this.agentId;
   }
 
+  isConfigured(): boolean {
+    return !!(this.apiKey && this.agentId);
+  }
+
   async createConversationSession(callSid: string, userData: {
     name: string;
     location?: { latitude: number; longitude: number } | null;
   }): Promise<string> {
     try {
+      if (!this.apiKey) {
+        throw new Error('ElevenLabs API key not configured. Please set VITE_ELEVENLABS_API_KEY in your environment variables.');
+      }
+
+      if (!this.agentId) {
+        throw new Error('ElevenLabs Agent ID not configured. Please set VITE_ELEVENLABS_AGENT_ID in your environment variables.');
+      }
+
+      console.log('Creating ElevenLabs conversation session...', {
+        agentId: this.agentId,
+        callSid,
+        userData
+      });
+
       const response = await fetch('https://api.elevenlabs.io/v1/convai/conversations', {
         method: 'POST',
         headers: {
@@ -51,12 +69,41 @@ export class ElevenLabsService {
         }),
       });
 
+      const responseText = await response.text();
+      console.log('ElevenLabs API response:', {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries()),
+        body: responseText
+      });
+
       if (!response.ok) {
-        throw new Error(`ElevenLabs API error: ${response.status}`);
+        let errorMessage = `ElevenLabs API error: ${response.status} ${response.statusText}`;
+        
+        if (response.status === 401) {
+          errorMessage += '. Invalid API key. Please check your VITE_ELEVENLABS_API_KEY.';
+        } else if (response.status === 404) {
+          errorMessage += '. Agent not found. Please check your VITE_ELEVENLABS_AGENT_ID.';
+        } else if (response.status === 405) {
+          errorMessage += '. Method not allowed. This might indicate an incorrect API endpoint or agent configuration.';
+        }
+        
+        errorMessage += ` Response: ${responseText}`;
+        throw new Error(errorMessage);
       }
 
-      const data = await response.json();
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        throw new Error(`Failed to parse ElevenLabs response: ${responseText}`);
+      }
+
       const conversationId = data.conversation_id;
+
+      if (!conversationId) {
+        throw new Error(`No conversation ID returned from ElevenLabs. Response: ${JSON.stringify(data)}`);
+      }
 
       // Store session
       this.activeSessions.set(conversationId, {
@@ -83,13 +130,22 @@ export class ElevenLabsService {
         return;
       }
 
-      await fetch(`https://api.elevenlabs.io/v1/convai/conversations/${conversationId}/end`, {
+      if (!this.apiKey) {
+        console.warn('ElevenLabs API key not configured, cannot end conversation');
+        return;
+      }
+
+      const response = await fetch(`https://api.elevenlabs.io/v1/convai/conversations/${conversationId}/end`, {
         method: 'POST',
         headers: {
           'xi-api-key': this.apiKey,
           'Content-Type': 'application/json',
         },
       });
+
+      if (!response.ok) {
+        console.warn(`Failed to end ElevenLabs conversation: ${response.status} ${response.statusText}`);
+      }
 
       session.isActive = false;
       console.log(`ElevenLabs conversation ended: ${conversationId}`);

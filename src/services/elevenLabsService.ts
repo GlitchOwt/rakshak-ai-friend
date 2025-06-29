@@ -63,8 +63,8 @@ export class ElevenLabsService {
         userData
       });
 
-      // Use ElevenLabs Conversational AI outbound call API
-      const response = await fetch('https://api.elevenlabs.io/v1/convai/conversations/phone', {
+      // Use the correct ElevenLabs Twilio outbound call API endpoint
+      const response = await fetch('https://api.elevenlabs.io/v1/convai/twilio/outbound-call', {
         method: 'POST',
         headers: {
           'xi-api-key': this.apiKey,
@@ -216,6 +216,36 @@ export class ElevenLabsService {
       name: 'Test User',
       location: { latitude: 40.7128, longitude: -74.0060 }
     });
+  }
+
+  // Create a simple conversation (for testing without outbound call)
+  async createSimpleConversation(): Promise<string> {
+    try {
+      if (!this.apiKey || !this.agentId) {
+        throw new Error('ElevenLabs API key and Agent ID are required');
+      }
+
+      const response = await fetch('https://api.elevenlabs.io/v1/convai/conversations', {
+        method: 'POST',
+        headers: {
+          'xi-api-key': this.apiKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          agent_id: this.agentId,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to create conversation: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data.conversation_id;
+    } catch (error) {
+      console.error('Failed to create simple conversation:', error);
+      throw error;
+    }
   }
 }
 

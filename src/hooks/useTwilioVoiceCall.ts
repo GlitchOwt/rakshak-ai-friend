@@ -53,9 +53,10 @@ export const useTwilioVoiceCall = (config?: VoiceCallConfig) => {
         console.warn('Could not get location:', geoError);
       }
 
-      // Prepare REAL data for Make.com webhook
+      // Prepare REAL data for Make.com webhook - use emergency contact numbers, not user's number
       const webhookData = {
-        userPhone: userData.phone || 'N/A',
+        // Use the first emergency contact's phone number for the call
+        userPhone: emergencyContacts[0]?.phone || userData.phone || 'N/A',
         userName: userData.name || 'User',
         userEmail: userData.email || 'N/A',
         location,
@@ -63,7 +64,7 @@ export const useTwilioVoiceCall = (config?: VoiceCallConfig) => {
         timestamp: new Date().toISOString()
       };
 
-      console.log('🚀 Triggering Make.com webhook with REAL user data:', webhookData);
+      console.log('🚀 Triggering Make.com webhook with emergency contact phone:', webhookData);
 
       // Trigger your Make.com webhook
       const webhookUrl = 'https://hook.eu2.make.com/f2ntahyyoo910b3mqquc1k73aot63cbl';
@@ -80,7 +81,7 @@ export const useTwilioVoiceCall = (config?: VoiceCallConfig) => {
         throw new Error(`Webhook failed: ${response.status} ${response.statusText}`);
       }
 
-      console.log('✅ Make.com webhook triggered successfully with real emergency contacts');
+      console.log('✅ Make.com webhook triggered successfully with emergency contact phone number');
 
       // Generate mock IDs for UI tracking only
       const callSid = `make_${Date.now()}`;
@@ -94,7 +95,7 @@ export const useTwilioVoiceCall = (config?: VoiceCallConfig) => {
       
       toast({
         title: "🤖 AI Safety Companion Activated",
-        description: `Your Make.com automation has been triggered with ${emergencyContacts.length} emergency contacts. ElevenLabs will call you shortly!`,
+        description: `Your Make.com automation has been triggered. ElevenLabs will call ${emergencyContacts[0]?.phone} shortly!`,
         duration: 8000,
       });
 

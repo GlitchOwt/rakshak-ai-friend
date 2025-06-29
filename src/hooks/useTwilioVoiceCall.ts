@@ -19,11 +19,18 @@ export const useTwilioVoiceCall = (config?: VoiceCallConfig) => {
     setIsInitiating(true);
     
     try {
-      // Get user data
+      // Get REAL user data from localStorage
       const userData = JSON.parse(localStorage.getItem('rakshak_user') || '{}');
       
-      if (!userData.phone) {
-        throw new Error('Phone number not found. Please update your profile.');
+      if (!userData.phone && !userData.email) {
+        throw new Error('User data not found. Please sign in again.');
+      }
+
+      // Get REAL emergency contacts from localStorage
+      const emergencyContacts = userData.emergencyContacts || [];
+      
+      if (emergencyContacts.length === 0) {
+        throw new Error('No emergency contacts found. Please add emergency contacts first.');
       }
 
       // Get current location
@@ -46,19 +53,19 @@ export const useTwilioVoiceCall = (config?: VoiceCallConfig) => {
         console.warn('Could not get location:', geoError);
       }
 
-      // Prepare data for Make.com webhook
+      // Prepare REAL data for Make.com webhook
       const webhookData = {
-        userPhone: userData.phone,
+        userPhone: userData.phone || 'N/A',
         userName: userData.name || 'User',
-        userEmail: userData.email || '',
+        userEmail: userData.email || 'N/A',
         location,
-        emergencyContacts: userData.emergencyContacts || [],
+        emergencyContacts: emergencyContacts, // REAL emergency contacts from storage
         timestamp: new Date().toISOString()
       };
 
-      console.log('🚀 Triggering Make.com webhook with data:', webhookData);
+      console.log('🚀 Triggering Make.com webhook with REAL user data:', webhookData);
 
-      // Trigger your Make.com webhook - ONLY THIS!
+      // Trigger your Make.com webhook
       const webhookUrl = 'https://hook.eu2.make.com/f2ntahyyoo910b3mqquc1k73aot63cbl';
       
       const response = await fetch(webhookUrl, {
@@ -73,7 +80,7 @@ export const useTwilioVoiceCall = (config?: VoiceCallConfig) => {
         throw new Error(`Webhook failed: ${response.status} ${response.statusText}`);
       }
 
-      console.log('✅ Make.com webhook triggered successfully');
+      console.log('✅ Make.com webhook triggered successfully with real emergency contacts');
 
       // Generate mock IDs for UI tracking only
       const callSid = `make_${Date.now()}`;
@@ -87,7 +94,7 @@ export const useTwilioVoiceCall = (config?: VoiceCallConfig) => {
       
       toast({
         title: "🤖 AI Safety Companion Activated",
-        description: "Your Make.com automation has been triggered. ElevenLabs will call you shortly!",
+        description: `Your Make.com automation has been triggered with ${emergencyContacts.length} emergency contacts. ElevenLabs will call you shortly!`,
         duration: 8000,
       });
 

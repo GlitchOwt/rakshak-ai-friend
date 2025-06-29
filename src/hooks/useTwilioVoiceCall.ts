@@ -1,8 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { twilioService } from '@/services/twilioService';
-import { callMonitoringService } from '@/services/callMonitoringService';
-import { elevenLabsService } from '@/services/elevenLabsService';
 
 interface VoiceCallConfig {
   onCallStarted?: (callSid: string, conversationId: string) => void;
@@ -18,27 +15,6 @@ export const useTwilioVoiceCall = (config?: VoiceCallConfig) => {
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const [isInitiating, setIsInitiating] = useState(false);
 
-  // Listen for emergency and safe arrival events
-  useEffect(() => {
-    const handleEmergencyTriggered = (event: CustomEvent) => {
-      const { triggerWord } = event.detail;
-      config?.onEmergencyTriggered?.(triggerWord);
-    };
-
-    const handleSafeArrival = (event: CustomEvent) => {
-      const { safePhrase } = event.detail;
-      config?.onSafeArrival?.(safePhrase);
-    };
-
-    window.addEventListener('emergencyTriggered', handleEmergencyTriggered as EventListener);
-    window.addEventListener('safeArrival', handleSafeArrival as EventListener);
-
-    return () => {
-      window.removeEventListener('emergencyTriggered', handleEmergencyTriggered as EventListener);
-      window.removeEventListener('safeArrival', handleSafeArrival as EventListener);
-    };
-  }, [config]);
-
   const startSafetyCall = useCallback(async () => {
     setIsInitiating(true);
     
@@ -48,11 +24,6 @@ export const useTwilioVoiceCall = (config?: VoiceCallConfig) => {
       
       if (!userData.phone) {
         throw new Error('Phone number not found. Please update your profile.');
-      }
-
-      // Check if ElevenLabs is properly configured
-      if (!elevenLabsService.isConfigured()) {
-        throw new Error('ElevenLabs service is not properly configured. Please check your API key and Agent ID.');
       }
 
       // Get current location
@@ -73,93 +44,109 @@ export const useTwilioVoiceCall = (config?: VoiceCallConfig) => {
         };
       } catch (geoError) {
         console.warn('Could not get location:', geoError);
-        // Continue without location
       }
 
-      // Trigger the call via ElevenLabs outbound calling
-      const callData = {
+      // Prepare data for Make.com webhook
+      const webhookData = {
         userPhone: userData.phone,
         userName: userData.name || 'User',
+        userEmail: userData.email || '',
         location,
-        emergencyContacts: userData.emergencyContacts || []
+        emergencyContacts: userData.emergencyContacts || [],
+        timestamp: new Date().toISOString()
       };
 
-      const response = await twilioService.triggerSafetyCall(callData);
+      console.log('🚀 Triggering Make.com webhook with data:', webhookData);
+
+      // Trigger your Make.com webhook
+      const webhookUrl = 'https://hook.eu2.make.com/f2ntahyyoo910b3mqquc1k73aot63cbl';
       
-      if (response.callSid && response.conversationId) {
-        setCurrentCallSid(response.callSid);
-        setCurrentConversationId(response.conversationId);
-        setIsCallActive(true);
-        
-        // Register the call for monitoring
-        callMonitoringService.registerCall({
-          callSid: response.callSid,
-          userName: callData.userName,
-          userPhone: callData.userPhone,
-          location: callData.location,
-          emergencyContacts: callData.emergencyContacts,
-          conversationId: response.conversationId
-        });
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(webhookData),
+      });
 
-        config?.onCallStarted?.(response.callSid, response.conversationId);
-        
-        toast({
-          title: "🤖 AI Safety Companion Activated",
-          description: "You should receive a call within 10 seconds. Your AI companion will start a friendly conversation and monitor for your safety.",
-          duration: 8000,
-        });
+      if (!response.ok) {
+        throw new Error(`Webhook failed: ${response.status} ${response.statusText}`);
+      }
 
-        // Simulate call connection after 5 seconds
-        setTimeout(() => {
+      console.log('✅ Make.com webhook triggered successfully');
+
+      // Generate mock IDs for UI tracking
+      const callSid = `make_${Date.now()}`;
+      const conversationId = `conv_${Date.now()}`;
+
+      setCurrentCallSid(callSid);
+      setCurrentConversationId(conversationId);
+      setIsCallActive(true);
+
+      config?.onCallStarted?.(callSid, conversationId);
+      
+      toast({
+        title: "🤖 AI Safety Companion Activated",
+        description: "Your Make.com automation has been triggered. ElevenLabs will call you shortly!",
+        duration: 8000,
+      });
+
+      // Simulate call connection status
+      setTimeout(() => {
+        if (isCallActive) {
           toast({
-            title: "📞 Call Connected",
-            description: "Your AI safety companion is now talking with you. Speak naturally!",
+            title: "📞 Waiting for Call",
+            description: "Your phone should ring any moment from ElevenLabs...",
             duration: 5000,
           });
-        }, 5000);
-      }
+        }
+      }, 5000);
+
     } catch (error) {
-      console.error('Failed to start safety call:', error);
+      console.error('Failed to trigger webhook:', error);
       toast({
-        title: "Call Failed",
-        description: error instanceof Error ? error.message : "Unable to start safety call. Please try again.",
+        title: "Webhook Failed",
+        description: error instanceof Error ? error.message : "Unable to trigger Make.com webhook. Please try again.",
         variant: "destructive",
       });
     } finally {
       setIsInitiating(false);
     }
-  }, [config, toast]);
+  }, [config, toast, isCallActive]);
 
   const endCall = useCallback(async () => {
-    if (currentCallSid) {
-      callMonitoringService.endCall(currentCallSid);
-    }
-    
-    if (currentConversationId) {
-      try {
-        await elevenLabsService.endConversation(currentConversationId);
-      } catch (error) {
-        console.warn('Failed to end ElevenLabs conversation:', error);
-      }
-      setCurrentConversationId(null);
-    }
-    
     setCurrentCallSid(null);
+    setCurrentConversationId(null);
     setIsCallActive(false);
     config?.onCallEnded?.();
     
     toast({
       title: "Call Ended",
-      description: "Your safety call has ended. Thank you for using Rakshak.ai!",
+      description: "Your safety call session has ended. Thank you for using Rakshak.ai!",
     });
-  }, [currentCallSid, currentConversationId, config, toast]);
+  }, [config, toast]);
 
-  // Simulate transcript processing (in real implementation, this would come from ElevenLabs webhook)
+  // Simulate transcript processing (for testing emergency/safe word detection)
   const simulateTranscriptProcessing = useCallback((transcript: string) => {
-    if (currentCallSid) {
-      callMonitoringService.processTranscript(currentCallSid, transcript);
+    const triggerWords = ['help', 'danger', 'stop', 'emergency', 'scared', 'unsafe'];
+    const safeWords = ['reached home', 'home safe', 'arrived safely', 'reached destination'];
+
+    const lowerTranscript = transcript.toLowerCase();
+
+    // Check for emergency trigger words
+    const detectedTriggerWord = triggerWords.find(word => lowerTranscript.includes(word));
+    if (detectedTriggerWord) {
+      config?.onEmergencyTriggered?.(detectedTriggerWord);
+      return;
     }
-  }, [currentCallSid]);
+
+    // Check for safe arrival words
+    const detectedSafeWord = safeWords.find(phrase => lowerTranscript.includes(phrase));
+    if (detectedSafeWord) {
+      config?.onSafeArrival?.(detectedSafeWord);
+      return;
+    }
+  }, [config]);
 
   return {
     isCallActive,
@@ -168,6 +155,6 @@ export const useTwilioVoiceCall = (config?: VoiceCallConfig) => {
     isInitiating,
     startSafetyCall,
     endCall,
-    simulateTranscriptProcessing // For testing purposes
+    simulateTranscriptProcessing
   };
 };

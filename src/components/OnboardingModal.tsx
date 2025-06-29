@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -76,12 +75,23 @@ const OnboardingModal = ({ isOpen, onClose }: OnboardingModalProps) => {
       return;
     }
 
-    // Save to localStorage
-    const userData = JSON.parse(localStorage.getItem('rakshak_user') || '{}');
-    userData.name = name;
-    userData.address = address;
-    userData.emergencyContacts = validContacts;
-    localStorage.setItem('rakshak_user', JSON.stringify(userData));
+    // Get existing user data and update with fresh form data
+    const existingUserData = JSON.parse(localStorage.getItem('rakshak_user') || '{}');
+    const updatedUserData = {
+      ...existingUserData,
+      name: name.trim(),
+      address: address.trim(),
+      emergencyContacts: validContacts
+    };
+    
+    localStorage.setItem('rakshak_user', JSON.stringify(updatedUserData));
+
+    console.log('✅ Fresh user data saved:', updatedUserData);
+
+    toast({
+      title: "Profile Complete!",
+      description: `Added ${validContacts.length} emergency contacts successfully`,
+    });
 
     onClose();
   };
@@ -93,11 +103,11 @@ const OnboardingModal = ({ isOpen, onClose }: OnboardingModalProps) => {
           <div className="flex items-center justify-center mb-4">
             <Users className="h-6 w-6 text-purple-600 mr-2" />
             <DialogTitle className="text-xl">
-              Welcome to Rakshak.ai
+              Complete Your Safety Profile
             </DialogTitle>
           </div>
           <p className="text-gray-600 text-sm">
-            Let's set up your safety profile
+            Let's set up your safety information
           </p>
         </DialogHeader>
 

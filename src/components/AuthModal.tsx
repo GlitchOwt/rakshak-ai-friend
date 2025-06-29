@@ -57,14 +57,19 @@ const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
     setLoading(true);
     // Simulate API call
     setTimeout(() => {
+      // Create fresh user data with NO mock data
       const userData = {
         id: Date.now(),
         email,
-        phone: "+91 8788293663", // Updated to your phone number
-        name: "User",
-        emergencyContacts: []
+        phone: "", // Will be filled later
+        name: "", // Will be filled in onboarding
+        emergencyContacts: [] // Will be filled in onboarding
       };
+      
+      // Clear any existing data first
+      localStorage.removeItem('rakshak_user');
       localStorage.setItem('rakshak_user', JSON.stringify(userData));
+      
       setLoading(false);
       onSuccess(userData);
       toast({
@@ -87,13 +92,19 @@ const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
     setLoading(true);
     // Simulate API call
     setTimeout(() => {
+      // Create fresh user data with NO mock data
       const userData = {
         id: Date.now(),
         phone,
-        name: "User",
-        emergencyContacts: []
+        email: "", // Will be filled later if needed
+        name: "", // Will be filled in onboarding
+        emergencyContacts: [] // Will be filled in onboarding
       };
+      
+      // Clear any existing data first
+      localStorage.removeItem('rakshak_user');
       localStorage.setItem('rakshak_user', JSON.stringify(userData));
+      
       setLoading(false);
       onSuccess(userData);
       toast({
@@ -136,7 +147,7 @@ const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
                   <Input
                     id="phone"
                     type="tel"
-                    placeholder="+91 8788293663"
+                    placeholder="+91 XXXXXXXXXX"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                   />

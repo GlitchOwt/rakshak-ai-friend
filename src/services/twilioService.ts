@@ -1,4 +1,5 @@
 import { elevenLabsService } from './elevenLabsService';
+import { makeWebhookService } from './makeWebhookService';
 
 interface CallData {
   userPhone: string;
@@ -33,6 +34,13 @@ export class TwilioService {
     try {
       console.log('🚀 Triggering safety call via ElevenLabs outbound calling...', callData);
 
+      // Check ElevenLabs account status first
+      const elevenLabsStatus = await elevenLabsService.getDetailedStatus();
+      
+      if (!elevenLabsStatus.accountStatus.hasOutboundCalling) {
+        throw new Error(`ElevenLabs outbound calling not available: ${elevenLabsStatus.accountStatus.error || 'Upgrade to a paid plan required'}`);
+      }
+
       // Directly initiate ElevenLabs outbound call
       const conversationId = await elevenLabsService.initiateOutboundCall(
         callData.userPhone,
@@ -42,8 +50,25 @@ export class TwilioService {
         }
       );
 
+      const callSid = `el_${conversationId}`;
+
+      // Log call initiation to Make.com for tracking
+      try {
+        await makeWebhookService.logCallInitiation({
+          userPhone: callData.userPhone,
+          userName: callData.userName,
+          location: callData.location,
+          emergencyContacts: callData.emergencyContacts,
+          conversationId: conversationId,
+          method: 'elevenlabs_outbound'
+        });
+      } catch (logError) {
+        console.warn('Failed to log call initiation:', logError);
+        // Don't fail the call if logging fails
+      }
+
       return {
-        callSid: `el_${conversationId}`, // Use conversation ID as call SID
+        callSid,
         conversationId,
         status: 'initiated'
       };
@@ -62,6 +87,13 @@ export class TwilioService {
     console.log('🧪 Testing ElevenLabs outbound calling...');
     
     try {
+      // Check account status first
+      const status = await elevenLabsService.getDetailedStatus();
+      
+      if (!status.accountStatus.hasOutboundCalling) {
+        throw new Error(`ElevenLabs outbound calling not available: ${status.accountStatus.error || 'Upgrade required'}`);
+      }
+
       const conversationId = await elevenLabsService.testOutboundCall();
       console.log('✅ ElevenLabs outbound call test passed:', conversationId);
       
@@ -81,12 +113,56 @@ export class TwilioService {
     }
   }
 
+  async testWebhooks(): Promise<void> {
+    console.log('🧪 Testing Make.com webhooks...');
+    
+    try {
+      // Test emergency alert webhook
+      await makeWebhookService.testEmergencyAlert();
+      
+      // Test safe arrival webhook
+      await makeWebhookService.testSafeArrival();
+      
+      console.log('✅ All webhook tests completed');
+    } catch (error) {
+      console.error('❌ Webhook tests failed:', error);
+      throw error;
+    }
+  }
+
   getServiceStatus(): { [key: string]: boolean } {
+    const elevenLabsConfigured = elevenLabsService.isConfigured();
+    const webhookStatus = makeWebhookService.getWebhookStatus();
+    
     return {
-      elevenLabsConfigured: elevenLabsService.isConfigured(),
+      elevenLabsConfigured,
       elevenLabsOutbound: !!(elevenLabsService.getAgentId() && elevenLabsService.getPhoneNumberId()),
-      emergencyAlert: true, // Assume webhooks are configured
-      safeArrival: true
+      emergencyAlert: webhookStatus.emergencyAlert,
+      safeArrival: webhookStatus.safeArrival
+    };
+  }
+
+  async getDetailedServiceStatus(): Promise<{
+    elevenlabs: any;
+    webhooks: any;
+    overall: string;
+  }> {
+    const elevenLabsStatus = await elevenLabsService.getDetailedStatus();
+    const webhookStatus = makeWebhookService.getWebhookStatus();
+    
+    let overall = 'ready';
+    if (!elevenLabsStatus.accountStatus.hasOutboundCalling) {
+      overall = 'upgrade_required';
+    } else if (!elevenLabsStatus.configured) {
+      overall = 'configuration_required';
+    } else if (!webhookStatus.emergencyAlert || !webhookStatus.safeArrival) {
+      overall = 'webhooks_missing';
+    }
+    
+    return {
+      elevenlabs: elevenLabsStatus,
+      webhooks: webhookStatus,
+      overall
     };
   }
 }

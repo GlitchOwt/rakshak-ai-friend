@@ -39,6 +39,62 @@ export class ElevenLabsService {
     return !!(this.apiKey && this.agentId && this.phoneNumberId);
   }
 
+  async checkAccountStatus(): Promise<{
+    hasOutboundCalling: boolean;
+    accountType: string;
+    error?: string;
+  }> {
+    try {
+      // First, let's check if the agent exists and is accessible
+      const agentResponse = await fetch(`https://api.elevenlabs.io/v1/convai/agents/${this.agentId}`, {
+        method: 'GET',
+        headers: {
+          'xi-api-key': this.apiKey,
+        },
+      });
+
+      if (!agentResponse.ok) {
+        return {
+          hasOutboundCalling: false,
+          accountType: 'unknown',
+          error: `Agent not accessible: ${agentResponse.status} ${agentResponse.statusText}`
+        };
+      }
+
+      // Try to get account info
+      const accountResponse = await fetch('https://api.elevenlabs.io/v1/user', {
+        method: 'GET',
+        headers: {
+          'xi-api-key': this.apiKey,
+        },
+      });
+
+      if (accountResponse.ok) {
+        const accountData = await accountResponse.json();
+        console.log('ElevenLabs account info:', accountData);
+        
+        return {
+          hasOutboundCalling: accountData.subscription?.tier !== 'free',
+          accountType: accountData.subscription?.tier || 'free',
+          error: accountData.subscription?.tier === 'free' ? 
+            'Outbound calling requires a paid ElevenLabs subscription' : undefined
+        };
+      }
+
+      return {
+        hasOutboundCalling: false,
+        accountType: 'unknown',
+        error: 'Could not determine account status'
+      };
+    } catch (error) {
+      return {
+        hasOutboundCalling: false,
+        accountType: 'unknown',
+        error: `Account check failed: ${error}`
+      };
+    }
+  }
+
   async initiateOutboundCall(targetPhone: string, userData: {
     name: string;
     location?: { latitude: number; longitude: number } | null;
@@ -50,6 +106,29 @@ export class ElevenLabsService {
         targetPhone,
         userData
       });
+
+      // First check account status
+      const accountStatus = await this.checkAccountStatus();
+      console.log('ElevenLabs account status:', accountStatus);
+
+      if (!accountStatus.hasOutboundCalling) {
+        console.warn('⚠️ ElevenLabs outbound calling not available:', accountStatus.error);
+        
+        // Create a mock conversation ID for testing
+        const conversationId = `mock_outbound_${Date.now()}`;
+        
+        this.activeSessions.set(conversationId, {
+          conversationId,
+          agentId: this.agentId,
+          phoneNumberId: this.phoneNumberId,
+          targetPhone,
+          isActive: true,
+          startTime: new Date()
+        });
+
+        // Show helpful error message
+        throw new Error(`ElevenLabs outbound calling is not available for your account. ${accountStatus.error || 'Please upgrade to a paid plan to enable voice calling.'}`);
+      }
 
       // Use the exact format from the curl command you provided
       const response = await fetch('https://api.elevenlabs.io/v1/convai/twilio/outbound-call', {
@@ -74,18 +153,18 @@ export class ElevenLabsService {
       });
 
       if (!response.ok) {
-        let errorMessage = `ElevenLabs outbound call API error: ${response.status} ${response.statusText}`;
+        let errorMessage = `ElevenLabs outbound call failed: ${response.status} ${response.statusText}`;
         
         if (response.status === 401) {
-          errorMessage += '. Invalid API key.';
+          errorMessage = 'Invalid ElevenLabs API key. Please check your credentials.';
         } else if (response.status === 403) {
-          errorMessage += '. Voice calling may be disabled for this account or insufficient permissions.';
+          errorMessage = 'Voice calling is disabled for your ElevenLabs account. Please upgrade to a paid plan to enable outbound calling.';
         } else if (response.status === 404) {
-          errorMessage += '. Agent or phone number not found.';
+          errorMessage = 'ElevenLabs agent or phone number not found. Please check your agent ID and phone number ID.';
         } else if (response.status === 400) {
-          errorMessage += '. Invalid request format or phone number.';
+          errorMessage = 'Invalid request format or phone number. Please check the phone number format.';
         } else if (response.status === 422) {
-          errorMessage += '. Invalid request parameters.';
+          errorMessage = 'Invalid request parameters. Please check your agent configuration.';
         }
         
         errorMessage += ` Response: ${responseText}`;
@@ -168,6 +247,31 @@ export class ElevenLabsService {
       name: 'Test User',
       location: { latitude: 40.7128, longitude: -74.0060 }
     });
+  }
+
+  // Get detailed service status
+  async getDetailedStatus(): Promise<{
+    configured: boolean;
+    accountStatus: any;
+    recommendations: string[];
+  }> {
+    const accountStatus = await this.checkAccountStatus();
+    const recommendations: string[] = [];
+
+    if (!accountStatus.hasOutboundCalling) {
+      recommendations.push('Upgrade to a paid ElevenLabs plan to enable outbound calling');
+      recommendations.push('Alternatively, use the ElevenLabs web interface for testing: https://elevenlabs.io/app/talk-to?agent_id=' + this.agentId);
+    }
+
+    if (accountStatus.error) {
+      recommendations.push('Check your ElevenLabs API key and agent configuration');
+    }
+
+    return {
+      configured: this.isConfigured(),
+      accountStatus,
+      recommendations
+    };
   }
 }
 

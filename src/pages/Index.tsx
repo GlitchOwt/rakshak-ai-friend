@@ -10,9 +10,8 @@ import EmergencyContactsModal from "@/components/EmergencyContactsModal";
 import LegalChatbot from "@/components/LegalChatbot";
 import SOSButton from "@/components/SOSButton";
 import HelplineNumbers from "@/components/HelplineNumbers";
-import VoiceCallInterface from "@/components/VoiceCallInterface";
+import TwilioVoiceInterface from "@/components/TwilioVoiceInterface";
 import { useSOSIntegration } from "@/hooks/useSOSIntegration";
-import { elevenLabsService } from "@/services/elevenLabsService";
 
 const Index = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -24,6 +23,7 @@ const Index = () => {
   const [travelingAlone, setTravelingAlone] = useState<boolean | null>(null);
   const [showVoiceCall, setShowVoiceCall] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
+  const [autoCallInitiated, setAutoCallInitiated] = useState(false);
   const { toast } = useToast();
   const { sendSOS, sendSafeArrivalNotification } = useSOSIntegration();
 
@@ -73,6 +73,7 @@ const Index = () => {
 
   const handleCallEnd = () => {
     setShowVoiceCall(false);
+    setAutoCallInitiated(false);
     setShowFeedback(true);
     
     // Auto-hide feedback after 10 seconds
@@ -81,7 +82,14 @@ const Index = () => {
 
   const handleStartVoiceCompanion = () => {
     setTravelingAlone(true);
+    setAutoCallInitiated(true);
     setShowVoiceCall(true);
+    
+    toast({
+      title: "🤖 AI Companion Activating",
+      description: "Your phone will ring within 5-10 seconds. Answer to start chatting with your AI safety companion!",
+      duration: 8000,
+    });
   };
 
   const handleAuthSuccess = (userData: any) => {
@@ -158,12 +166,11 @@ const Index = () => {
           </Card>
         )}
 
-        {/* Voice Call Interface */}
-        {showVoiceCall && (
+        {/* Voice Call Interface - Auto-initiated */}
+        {showVoiceCall && autoCallInitiated && (
           <div className="mb-6">
-            <VoiceCallInterface
-              agentId={elevenLabsService.getAgentId()}
-              onTriggerWordDetected={handleTriggerWordDetected}
+            <TwilioVoiceInterface
+              onEmergencyTriggered={handleTriggerWordDetected}
               onSafeArrival={handleSafeArrival}
               onCallEnd={handleCallEnd}
             />
@@ -261,6 +268,7 @@ const Index = () => {
           onClick={() => {
             setTravelingAlone(null);
             setShowVoiceCall(false);
+            setAutoCallInitiated(false);
             setShowFeedback(false);
           }}
           variant="ghost"

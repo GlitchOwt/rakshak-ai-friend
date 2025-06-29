@@ -1,3 +1,4 @@
+
 interface WebhookPayload {
   action: string;
   [key: string]: any;
@@ -96,7 +97,6 @@ export class MakeWebhookService {
       headers: Object.fromEntries(response.headers.entries())
     });
 
-    // Handle different response types
     if (contentType?.includes('application/json')) {
       try {
         return JSON.parse(responseText);
@@ -105,7 +105,6 @@ export class MakeWebhookService {
         return { status: 'success', rawResponse: responseText };
       }
     } else {
-      // Handle plain text responses (like "Accepted")
       if (responseText.toLowerCase().includes('accepted') || 
           responseText.toLowerCase().includes('success') ||
           response.ok) {
@@ -156,7 +155,6 @@ export class MakeWebhookService {
       }
     } catch (error) {
       console.warn('Failed to log call initiation:', error);
-      // Don't throw error for logging failures
     }
   }
 

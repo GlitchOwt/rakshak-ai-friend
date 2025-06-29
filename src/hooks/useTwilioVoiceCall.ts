@@ -1,5 +1,8 @@
+
 import { useState, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { emergencyAlertService } from '@/services/emergencyAlertService';
+import { makeWebhookService } from '@/services/makeWebhookService';
 
 interface VoiceCallConfig {
   onCallStarted?: (callSid: string, conversationId: string) => void;
@@ -91,6 +94,30 @@ export const useTwilioVoiceCall = (config?: VoiceCallConfig) => {
       setCurrentConversationId(conversationId);
       setIsCallActive(true);
 
+      // Start emergency monitoring session
+      emergencyAlertService.startSession({
+        callSid,
+        conversationId,
+        userName: userData.name || 'User',
+        userPhone: userData.phone || 'N/A',
+        emergencyContacts,
+        location
+      });
+
+      // Log call initiation
+      try {
+        await makeWebhookService.logCallInitiation({
+          userPhone: emergencyContacts[0]?.phone || userData.phone || 'N/A',
+          userName: userData.name || 'User',
+          location,
+          emergencyContacts,
+          conversationId,
+          method: 'make_elevenlabs'
+        });
+      } catch (logError) {
+        console.warn('Failed to log call initiation:', logError);
+      }
+
       config?.onCallStarted?.(callSid, conversationId);
       
       toast({
@@ -98,6 +125,9 @@ export const useTwilioVoiceCall = (config?: VoiceCallConfig) => {
         description: `Your Make.com automation has been triggered. ElevenLabs will call ${emergencyContacts[0]?.phone} shortly!`,
         duration: 8000,
       });
+
+      // Start simulating transcript processing (in real implementation, this would come from ElevenLabs)
+      simulateTranscriptUpdates(callSid);
 
     } catch (error) {
       console.error('Failed to trigger webhook:', error);
@@ -112,6 +142,11 @@ export const useTwilioVoiceCall = (config?: VoiceCallConfig) => {
   }, [config, toast]);
 
   const endCall = useCallback(async () => {
+    if (currentCallSid) {
+      // End emergency monitoring
+      emergencyAlertService.endSession(currentCallSid);
+    }
+
     setCurrentCallSid(null);
     setCurrentConversationId(null);
     setIsCallActive(false);
@@ -121,29 +156,57 @@ export const useTwilioVoiceCall = (config?: VoiceCallConfig) => {
       title: "Call Ended",
       description: "Your safety call session has ended. Thank you for using Rakshak.ai!",
     });
-  }, [config, toast]);
+  }, [config, toast, currentCallSid]);
 
   // Simulate transcript processing (for testing emergency/safe word detection)
-  const simulateTranscriptProcessing = useCallback((transcript: string) => {
+  const simulateTranscriptProcessing = useCallback(async (transcript: string) => {
+    if (!currentCallSid) return;
+
+    // Process through emergency alert service
+    await emergencyAlertService.processTranscript(currentCallSid, transcript);
+
+    // Legacy callbacks for UI updates
     const triggerWords = ['help', 'danger', 'stop', 'emergency', 'scared', 'unsafe'];
     const safeWords = ['reached home', 'home safe', 'arrived safely', 'reached destination'];
 
     const lowerTranscript = transcript.toLowerCase();
 
-    // Check for emergency trigger words
     const detectedTriggerWord = triggerWords.find(word => lowerTranscript.includes(word));
     if (detectedTriggerWord) {
       config?.onEmergencyTriggered?.(detectedTriggerWord);
       return;
     }
 
-    // Check for safe arrival words
     const detectedSafeWord = safeWords.find(phrase => lowerTranscript.includes(phrase));
     if (detectedSafeWord) {
       config?.onSafeArrival?.(detectedSafeWord);
       return;
     }
-  }, [config]);
+  }, [config, currentCallSid]);
+
+  // Simulate transcript updates (in real implementation, this would come from ElevenLabs real-time API)
+  const simulateTranscriptUpdates = useCallback((callSid: string) => {
+    const sampleTranscripts = [
+      "Hello, I'm walking to my destination now",
+      "The weather is nice today",
+      "I can see the building ahead",
+      "Everything looks good so far",
+      "Just crossing the street now"
+    ];
+
+    let index = 0;
+    const interval = setInterval(async () => {
+      if (!isCallActive || index >= sampleTranscripts.length) {
+        clearInterval(interval);
+        return;
+      }
+
+      await emergencyAlertService.processTranscript(callSid, sampleTranscripts[index]);
+      index++;
+    }, 10000); // Every 10 seconds
+
+    return () => clearInterval(interval);
+  }, [isCallActive]);
 
   return {
     isCallActive,

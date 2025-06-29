@@ -3,8 +3,8 @@ interface WebhookPayload {
   [key: string]: any;
 }
 
-interface CallTriggerPayload extends WebhookPayload {
-  action: 'trigger_call';
+interface CallInitiationPayload extends WebhookPayload {
+  action: 'call_initiated';
   userPhone: string;
   userName: string;
   location: {
@@ -16,8 +16,8 @@ interface CallTriggerPayload extends WebhookPayload {
     phone: string;
     relation: string;
   }>;
-  agentId: string;
   conversationId: string;
+  method: string;
   timestamp: string;
 }
 
@@ -124,22 +124,19 @@ export class MakeWebhookService {
     }
   }
 
-  async triggerSafetyCall(data: Omit<CallTriggerPayload, 'action' | 'timestamp'>): Promise<{
-    callSid: string;
-    conversationId: string;
-    status: string;
-  }> {
-    const payload: CallTriggerPayload = {
+  async logCallInitiation(data: Omit<CallInitiationPayload, 'action' | 'timestamp'>): Promise<void> {
+    const payload: CallInitiationPayload = {
       ...data,
-      action: 'trigger_call',
+      action: 'call_initiated',
       timestamp: new Date().toISOString(),
     };
 
     try {
-      console.log('🔄 Triggering safety call via Make.com...', payload);
+      console.log('📞 Logging call initiation to Make.com...', payload);
       
       if (!this.webhookUrls.triggerCall) {
-        throw new Error('Call trigger webhook URL not configured. Please set VITE_TRIGGER_CALL_WEBHOOK_URL in your environment variables.');
+        console.warn('Call trigger webhook URL not configured, skipping logging');
+        return;
       }
 
       const response = await fetch(this.webhookUrls.triggerCall, {
@@ -153,24 +150,13 @@ export class MakeWebhookService {
       const result = await this.parseWebhookResponse(response);
 
       if (!response.ok) {
-        throw new Error(`Make.com webhook failed: ${response.status} ${response.statusText}. Response: ${JSON.stringify(result)}`);
-      }
-
-      console.log('✅ Safety call triggered successfully:', result);
-
-      return {
-        callSid: result.callSid || `call_${Date.now()}`,
-        conversationId: data.conversationId,
-        status: result.status || 'initiated',
-      };
-    } catch (error) {
-      console.error('❌ Failed to trigger safety call:', error);
-      
-      if (error instanceof Error) {
-        throw new Error(`Failed to initiate safety call through Make.com automation: ${error.message}`);
+        console.warn(`Call initiation logging failed: ${response.status} ${response.statusText}. Response: ${JSON.stringify(result)}`);
       } else {
-        throw new Error('Failed to initiate safety call through Make.com automation');
+        console.log('✅ Call initiation logged successfully:', result);
       }
+    } catch (error) {
+      console.warn('Failed to log call initiation:', error);
+      // Don't throw error for logging failures
     }
   }
 
@@ -245,31 +231,10 @@ export class MakeWebhookService {
   }
 
   // Test methods for development
-  async testTriggerCall(): Promise<void> {
-    const testData = {
-      userPhone: '+1234567890',
-      userName: 'Test User',
-      location: { latitude: 40.7128, longitude: -74.0060 },
-      emergencyContacts: [
-        { name: 'Emergency Contact', phone: '+1234567891', relation: 'friend' }
-      ],
-      agentId: import.meta.env.VITE_ELEVENLABS_AGENT_ID || 'test_agent',
-      conversationId: `test_conv_${Date.now()}`,
-    };
-
-    try {
-      await this.triggerSafetyCall(testData);
-      console.log('✅ Call trigger webhook test passed');
-    } catch (error) {
-      console.error('❌ Call trigger webhook test failed:', error);
-      throw error;
-    }
-  }
-
   async testEmergencyAlert(): Promise<void> {
     const testData = {
       userName: 'Test User',
-      userPhone: '+1234567890',
+      userPhone: '+918788293663',
       location: 'https://maps.google.com/?q=40.7128,-74.0060',
       emergencyContacts: [
         { name: 'Emergency Contact', phone: '+1234567891', relation: 'friend' }
@@ -293,7 +258,7 @@ export class MakeWebhookService {
   async testSafeArrival(): Promise<void> {
     const testData = {
       userName: 'Test User',
-      userPhone: '+1234567890',
+      userPhone: '+918788293663',
       emergencyContacts: [
         { name: 'Emergency Contact', phone: '+1234567891', relation: 'friend' }
       ],
@@ -316,7 +281,6 @@ export class MakeWebhookService {
   // Get webhook status
   getWebhookStatus(): { [key: string]: boolean } {
     return {
-      triggerCall: !!this.webhookUrls.triggerCall,
       emergencyAlert: !!this.webhookUrls.emergencyAlert,
       safeArrival: !!this.webhookUrls.safeArrival,
     };

@@ -14,14 +14,9 @@ interface CallData {
 
 export class TwilioService {
   private static instance: TwilioService;
-  private accountSid: string;
-  private authToken: string;
-  private fromNumber: string;
 
   constructor() {
-    this.accountSid = import.meta.env.VITE_TWILIO_ACCOUNT_SID || '';
-    this.authToken = import.meta.env.VITE_TWILIO_AUTH_TOKEN || '';
-    this.fromNumber = import.meta.env.VITE_TWILIO_PHONE_NUMBER || '';
+    // No longer need Twilio credentials since we're using ElevenLabs outbound calling
   }
 
   static getInstance(): TwilioService {
@@ -37,25 +32,39 @@ export class TwilioService {
     status: string;
   }> {
     try {
-      // First, create ElevenLabs conversation session
-      const conversationId = await elevenLabsService.createConversationSession(
-        `temp_call_${Date.now()}`, // Temporary call ID
+      console.log('🚀 Triggering safety call via ElevenLabs outbound calling...', callData);
+
+      // Directly initiate ElevenLabs outbound call
+      const conversationId = await elevenLabsService.initiateOutboundCall(
+        callData.userPhone,
         {
           name: callData.userName,
           location: callData.location
         }
       );
 
-      // Then trigger the call via Make.com webhook
-      const result = await makeWebhookService.triggerSafetyCall({
-        ...callData,
-        agentId: elevenLabsService.getAgentId(),
-        conversationId
-      });
+      // Optionally notify Make.com about the call initiation for logging/tracking
+      try {
+        await makeWebhookService.logCallInitiation({
+          userPhone: callData.userPhone,
+          userName: callData.userName,
+          location: callData.location,
+          emergencyContacts: callData.emergencyContacts,
+          conversationId,
+          method: 'elevenlabs_outbound'
+        });
+      } catch (webhookError) {
+        console.warn('Failed to log call initiation to Make.com:', webhookError);
+        // Don't fail the call if logging fails
+      }
 
-      return result;
+      return {
+        callSid: `el_${conversationId}`, // Use conversation ID as call SID
+        conversationId,
+        status: 'initiated'
+      };
     } catch (error) {
-      console.error('Failed to trigger safety call:', error);
+      console.error('❌ Failed to trigger safety call:', error);
       
       if (error instanceof Error) {
         throw new Error(`Failed to initiate safety call: ${error.message}`);
@@ -69,19 +78,9 @@ export class TwilioService {
     console.log('🧪 Testing all Make.com webhooks...');
     
     const results = {
-      triggerCall: false,
       emergencyAlert: false,
       safeArrival: false
     };
-
-    // Test Call Trigger Webhook
-    try {
-      await makeWebhookService.testTriggerCall();
-      results.triggerCall = true;
-      console.log('✅ Call trigger webhook test passed');
-    } catch (error) {
-      console.error('❌ Call trigger webhook test failed:', error);
-    }
 
     // Test Emergency Alert Webhook
     try {
@@ -113,12 +112,35 @@ export class TwilioService {
     }
   }
 
+  async testElevenLabsOutbound(): Promise<void> {
+    console.log('🧪 Testing ElevenLabs outbound calling...');
+    
+    try {
+      const conversationId = await elevenLabsService.testOutboundCall();
+      console.log('✅ ElevenLabs outbound call test passed:', conversationId);
+      
+      // Wait a moment then end the test call
+      setTimeout(async () => {
+        try {
+          await elevenLabsService.endConversation(conversationId);
+          console.log('✅ Test call ended successfully');
+        } catch (error) {
+          console.warn('Failed to end test call:', error);
+        }
+      }, 10000); // End after 10 seconds
+      
+    } catch (error) {
+      console.error('❌ ElevenLabs outbound call test failed:', error);
+      throw error;
+    }
+  }
+
   getServiceStatus(): { [key: string]: boolean } {
     const webhookStatus = makeWebhookService.getWebhookStatus();
     
     return {
       elevenLabsConfigured: elevenLabsService.isConfigured(),
-      twilioConfigured: !!(this.accountSid && this.authToken && this.fromNumber),
+      elevenLabsOutbound: !!(elevenLabsService.getAgentId() && elevenLabsService.getPhoneNumberId()),
       ...webhookStatus
     };
   }

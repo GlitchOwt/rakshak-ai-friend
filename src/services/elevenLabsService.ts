@@ -1,7 +1,8 @@
 interface ConversationSession {
   conversationId: string;
   agentId: string;
-  callSid?: string;
+  phoneNumberId: string;
+  targetPhone: string;
   isActive: boolean;
   startTime: Date;
 }
@@ -10,11 +11,13 @@ export class ElevenLabsService {
   private static instance: ElevenLabsService;
   private apiKey: string;
   private agentId: string;
+  private phoneNumberId: string;
   private activeSessions: Map<string, ConversationSession> = new Map();
 
   constructor() {
     this.apiKey = import.meta.env.VITE_ELEVENLABS_API_KEY || '';
     this.agentId = import.meta.env.VITE_ELEVENLABS_AGENT_ID || '';
+    this.phoneNumberId = import.meta.env.VITE_ELEVENLABS_PHONE_NUMBER_ID || '';
   }
 
   static getInstance(): ElevenLabsService {
@@ -28,11 +31,15 @@ export class ElevenLabsService {
     return this.agentId;
   }
 
-  isConfigured(): boolean {
-    return !!(this.apiKey && this.agentId);
+  getPhoneNumberId(): string {
+    return this.phoneNumberId;
   }
 
-  async createConversationSession(callSid: string, userData: {
+  isConfigured(): boolean {
+    return !!(this.apiKey && this.agentId && this.phoneNumberId);
+  }
+
+  async initiateOutboundCall(targetPhone: string, userData: {
     name: string;
     location?: { latitude: number; longitude: number } | null;
   }): Promise<string> {
@@ -45,14 +52,19 @@ export class ElevenLabsService {
         throw new Error('ElevenLabs Agent ID not configured. Please set VITE_ELEVENLABS_AGENT_ID in your environment variables.');
       }
 
-      console.log('Creating ElevenLabs conversation session...', {
+      if (!this.phoneNumberId) {
+        throw new Error('ElevenLabs Phone Number ID not configured. Please set VITE_ELEVENLABS_PHONE_NUMBER_ID in your environment variables.');
+      }
+
+      console.log('🤖 Initiating ElevenLabs outbound call...', {
         agentId: this.agentId,
-        callSid,
+        phoneNumberId: this.phoneNumberId,
+        targetPhone,
         userData
       });
 
-      // Use the correct ElevenLabs Conversational AI API endpoint
-      const response = await fetch(`https://api.elevenlabs.io/v1/convai/conversations`, {
+      // Use ElevenLabs Conversational AI outbound call API
+      const response = await fetch('https://api.elevenlabs.io/v1/convai/conversations/phone', {
         method: 'POST',
         headers: {
           'xi-api-key': this.apiKey,
@@ -60,13 +72,20 @@ export class ElevenLabsService {
         },
         body: JSON.stringify({
           agent_id: this.agentId,
-          // Remove call_sid from the payload as it might not be expected by the API
-          // user_data can be passed as custom variables if needed
+          agent_phone_number_id: this.phoneNumberId,
+          to_number: targetPhone,
+          // Optional: Add custom variables for the conversation
+          custom_llm_extra_body: {
+            user_name: userData.name,
+            user_location: userData.location ? 
+              `${userData.location.latitude},${userData.location.longitude}` : 
+              'unknown'
+          }
         }),
       });
 
       const responseText = await response.text();
-      console.log('ElevenLabs API response:', {
+      console.log('ElevenLabs outbound call API response:', {
         status: response.status,
         statusText: response.statusText,
         headers: Object.fromEntries(response.headers.entries()),
@@ -74,16 +93,16 @@ export class ElevenLabsService {
       });
 
       if (!response.ok) {
-        let errorMessage = `ElevenLabs API error: ${response.status} ${response.statusText}`;
+        let errorMessage = `ElevenLabs outbound call API error: ${response.status} ${response.statusText}`;
         
         if (response.status === 401) {
           errorMessage += '. Invalid API key. Please check your VITE_ELEVENLABS_API_KEY.';
         } else if (response.status === 404) {
-          errorMessage += '. Agent not found. Please check your VITE_ELEVENLABS_AGENT_ID.';
-        } else if (response.status === 405) {
-          errorMessage += '. Method not allowed. Please verify your agent is properly configured for Conversational AI and has the correct permissions.';
+          errorMessage += '. Agent or phone number not found. Please check your VITE_ELEVENLABS_AGENT_ID and VITE_ELEVENLABS_PHONE_NUMBER_ID.';
+        } else if (response.status === 400) {
+          errorMessage += '. Invalid request. Please check the phone number format and agent configuration.';
         } else if (response.status === 422) {
-          errorMessage += '. Invalid request format. Please check the agent configuration.';
+          errorMessage += '. Invalid request format. Please check the agent and phone number configuration.';
         }
         
         errorMessage += ` Response: ${responseText}`;
@@ -107,15 +126,16 @@ export class ElevenLabsService {
       this.activeSessions.set(conversationId, {
         conversationId,
         agentId: this.agentId,
-        callSid,
+        phoneNumberId: this.phoneNumberId,
+        targetPhone,
         isActive: true,
         startTime: new Date()
       });
 
-      console.log(`ElevenLabs conversation created: ${conversationId}`);
+      console.log(`✅ ElevenLabs outbound call initiated: ${conversationId}`);
       return conversationId;
     } catch (error) {
-      console.error('Failed to create ElevenLabs conversation:', error);
+      console.error('❌ Failed to initiate ElevenLabs outbound call:', error);
       throw error;
     }
   }
@@ -133,6 +153,7 @@ export class ElevenLabsService {
         return;
       }
 
+      // End the conversation
       const response = await fetch(`https://api.elevenlabs.io/v1/convai/conversations/${conversationId}`, {
         method: 'DELETE',
         headers: {
@@ -147,9 +168,9 @@ export class ElevenLabsService {
 
       session.isActive = false;
       this.activeSessions.delete(conversationId);
-      console.log(`ElevenLabs conversation ended: ${conversationId}`);
+      console.log(`✅ ElevenLabs conversation ended: ${conversationId}`);
     } catch (error) {
-      console.error('Failed to end ElevenLabs conversation:', error);
+      console.error('❌ Failed to end ElevenLabs conversation:', error);
     }
   }
 
@@ -161,56 +182,40 @@ export class ElevenLabsService {
     return Array.from(this.activeSessions.values()).filter(session => session.isActive);
   }
 
-  // Generate TwiML for connecting call to ElevenLabs
-  generateTwiML(conversationId: string): string {
-    return `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-    <Say voice="alice">Hello! This is your AI safety companion from Rakshak. I'll be chatting with you during your journey to keep you company and ensure you're safe.</Say>
-    <Connect>
-        <Stream url="wss://api.elevenlabs.io/v1/convai/conversations/${conversationId}/stream">
-            <Parameter name="agent_id" value="${this.agentId}"/>
-            <Parameter name="conversation_id" value="${conversationId}"/>
-        </Stream>
-    </Connect>
-</Response>`;
-  }
-
-  // Alternative method to create a simpler conversation session
-  async createSimpleConversation(): Promise<string> {
+  // Get conversation status
+  async getConversationStatus(conversationId: string): Promise<any> {
     try {
-      if (!this.apiKey || !this.agentId) {
-        throw new Error('ElevenLabs API key and Agent ID must be configured');
+      if (!this.apiKey) {
+        throw new Error('ElevenLabs API key not configured');
       }
 
-      // Try a simpler approach - just create a conversation with minimal payload
-      const response = await fetch(`https://api.elevenlabs.io/v1/convai/conversations`, {
-        method: 'POST',
+      const response = await fetch(`https://api.elevenlabs.io/v1/convai/conversations/${conversationId}`, {
+        method: 'GET',
         headers: {
           'xi-api-key': this.apiKey,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          agent_id: this.agentId
-        }),
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`ElevenLabs API error: ${response.status} ${response.statusText}. Response: ${errorText}`);
+        throw new Error(`Failed to get conversation status: ${response.status} ${response.statusText}`);
       }
 
-      const data = await response.json();
-      const conversationId = data.conversation_id;
-
-      if (!conversationId) {
-        throw new Error(`No conversation ID returned from ElevenLabs. Response: ${JSON.stringify(data)}`);
-      }
-
-      return conversationId;
+      return await response.json();
     } catch (error) {
-      console.error('Failed to create simple ElevenLabs conversation:', error);
+      console.error('Failed to get conversation status:', error);
       throw error;
     }
+  }
+
+  // Test the outbound call functionality
+  async testOutboundCall(): Promise<string> {
+    const targetPhone = import.meta.env.VITE_TARGET_PHONE_NUMBER || '+918788293663';
+    
+    return await this.initiateOutboundCall(targetPhone, {
+      name: 'Test User',
+      location: { latitude: 40.7128, longitude: -74.0060 }
+    });
   }
 }
 

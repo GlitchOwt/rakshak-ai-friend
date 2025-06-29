@@ -6,6 +6,7 @@ import { Phone, PhoneOff, Shield, AlertTriangle, CheckCircle, Bot, Mic, TestTube
 import { useTwilioVoiceCall } from "@/hooks/useTwilioVoiceCall";
 import { useToast } from "@/hooks/use-toast";
 import { twilioService } from "@/services/twilioService";
+import { elevenLabsService } from "@/services/elevenLabsService";
 
 interface TwilioVoiceInterfaceProps {
   autoStart?: boolean;
@@ -27,6 +28,7 @@ const TwilioVoiceInterface = ({
   const [isConnected, setIsConnected] = useState(false);
   const [serviceStatus, setServiceStatus] = useState<{ [key: string]: boolean }>({});
   const [isTestingWebhooks, setIsTestingWebhooks] = useState(false);
+  const [isTestingOutbound, setIsTestingOutbound] = useState(false);
   const [hasAutoStarted, setHasAutoStarted] = useState(false);
 
   const { 
@@ -76,7 +78,7 @@ const TwilioVoiceInterface = ({
   // Auto-start call when autoStart prop is true
   useEffect(() => {
     if (autoStart && !hasAutoStarted && !isCallActive && !isInitiating) {
-      const criticalServicesReady = serviceStatus.elevenLabsConfigured && serviceStatus.triggerCall;
+      const criticalServicesReady = serviceStatus.elevenLabsConfigured && serviceStatus.elevenLabsOutbound;
       
       if (criticalServicesReady) {
         setHasAutoStarted(true);
@@ -145,10 +147,32 @@ const TwilioVoiceInterface = ({
     }
   };
 
+  const handleTestOutboundCall = async () => {
+    setIsTestingOutbound(true);
+    try {
+      await twilioService.testElevenLabsOutbound();
+      toast({
+        title: "📞 ElevenLabs Outbound Test Started",
+        description: "Your phone should ring within 10 seconds. Answer to test the AI companion. The call will automatically end after 10 seconds.",
+        duration: 8000,
+      });
+    } catch (error) {
+      console.error('Outbound call test error:', error);
+      toast({
+        title: "❌ Outbound Call Test Failed",
+        description: "Failed to initiate test call. Check the browser console for detailed error information.",
+        variant: "destructive",
+        duration: 10000,
+      });
+    } finally {
+      setIsTestingOutbound(false);
+    }
+  };
+
   // Service status indicator
   const getStatusColor = (status: boolean) => status ? 'bg-green-500' : 'bg-red-500';
   const allServicesReady = Object.values(serviceStatus).every(status => status);
-  const criticalServicesReady = serviceStatus.elevenLabsConfigured && serviceStatus.triggerCall;
+  const criticalServicesReady = serviceStatus.elevenLabsConfigured && serviceStatus.elevenLabsOutbound;
 
   if (!isCallActive && !isInitiating) {
     return (
@@ -161,7 +185,7 @@ const TwilioVoiceInterface = ({
           <p className="opacity-90 text-sm">
             {autoStart ? 
               "Your AI safety companion is starting automatically..." :
-              "Start a voice call with your AI safety companion powered by ElevenLabs."
+              "Start a voice call with your AI safety companion powered by ElevenLabs outbound calling."
             }
           </p>
         </CardHeader>
@@ -175,19 +199,19 @@ const TwilioVoiceInterface = ({
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div className="flex items-center">
                 <div className={`w-2 h-2 rounded-full mr-2 ${getStatusColor(serviceStatus.elevenLabsConfigured)}`}></div>
-                ElevenLabs
+                ElevenLabs API
               </div>
               <div className="flex items-center">
-                <div className={`w-2 h-2 rounded-full mr-2 ${getStatusColor(serviceStatus.twilioConfigured)}`}></div>
-                Twilio
-              </div>
-              <div className="flex items-center">
-                <div className={`w-2 h-2 rounded-full mr-2 ${getStatusColor(serviceStatus.triggerCall)}`}></div>
-                Call Trigger
+                <div className={`w-2 h-2 rounded-full mr-2 ${getStatusColor(serviceStatus.elevenLabsOutbound)}`}></div>
+                Outbound Calling
               </div>
               <div className="flex items-center">
                 <div className={`w-2 h-2 rounded-full mr-2 ${getStatusColor(serviceStatus.emergencyAlert)}`}></div>
-                Emergency
+                Emergency Alerts
+              </div>
+              <div className="flex items-center">
+                <div className={`w-2 h-2 rounded-full mr-2 ${getStatusColor(serviceStatus.safeArrival)}`}></div>
+                Safe Arrival
               </div>
             </div>
           </div>
@@ -210,7 +234,7 @@ const TwilioVoiceInterface = ({
                 <span className="font-semibold text-yellow-200">Waiting for Services</span>
               </div>
               <div className="text-xs text-yellow-100">
-                <p>Checking service configuration...</p>
+                <p>Checking ElevenLabs outbound calling configuration...</p>
               </div>
             </div>
           )}
@@ -225,8 +249,8 @@ const TwilioVoiceInterface = ({
                 {!serviceStatus.elevenLabsConfigured && (
                   <p>• ElevenLabs API key and Agent ID needed</p>
                 )}
-                {!serviceStatus.triggerCall && (
-                  <p>• Make.com call trigger webhook URL required</p>
+                {!serviceStatus.elevenLabsOutbound && (
+                  <p>• ElevenLabs Phone Number ID required for outbound calling</p>
                 )}
                 <p className="mt-2 opacity-75">Check your environment variables (.env file)</p>
               </div>
@@ -239,8 +263,8 @@ const TwilioVoiceInterface = ({
               <span className="font-semibold">How it works:</span>
             </div>
             <div className="space-y-1 text-xs opacity-90">
-              <p>• Your phone will ring within 10 seconds</p>
-              <p>• ElevenLabs AI will start a friendly conversation</p>
+              <p>• ElevenLabs will call your phone directly within 10 seconds</p>
+              <p>• AI agent will start a friendly conversation</p>
               <p>• Say "help" or "danger" if you need emergency assistance</p>
               <p>• Say "reached home safe" when you arrive safely</p>
               <p>• Emergency contacts will be automatically notified via WhatsApp</p>
@@ -250,6 +274,17 @@ const TwilioVoiceInterface = ({
           {/* Development Test Buttons */}
           {process.env.NODE_ENV === 'development' && !autoStart && (
             <div className="space-y-2">
+              <Button
+                onClick={handleTestOutboundCall}
+                variant="outline"
+                size="sm"
+                className="bg-white/20 border-white/30 text-white hover:bg-white/30 w-full"
+                disabled={isTestingOutbound || !serviceStatus.elevenLabsOutbound}
+              >
+                <Phone className="h-4 w-4 mr-2" />
+                {isTestingOutbound ? 'Testing Outbound Call...' : 'Test ElevenLabs Outbound Call'}
+              </Button>
+              
               <Button
                 onClick={handleTestWebhooks}
                 variant="outline"
@@ -273,11 +308,11 @@ const TwilioVoiceInterface = ({
         <CardContent className="p-8 text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
           <h3 className="text-xl font-semibold mb-2">Connecting to AI Companion</h3>
-          <p className="opacity-90 mb-4">Setting up ElevenLabs conversation and triggering Twilio call via Make.com...</p>
+          <p className="opacity-90 mb-4">ElevenLabs is initiating outbound call to your phone...</p>
           <div className="bg-white/10 rounded-lg p-3 text-sm space-y-1">
             <p>📞 Your phone should ring any moment...</p>
             <p>🤖 ElevenLabs agent is ready to chat</p>
-            <p>🔗 Make.com automation is processing</p>
+            <p>🔗 No TwiML required - direct outbound calling!</p>
           </div>
         </CardContent>
       </Card>
@@ -386,6 +421,7 @@ const TwilioVoiceInterface = ({
           <p>✅ Say <strong>"reached home safe"</strong> when you arrive</p>
           <p>💬 Speak naturally - the AI will keep you company!</p>
           <p>🔗 <strong>Make.com</strong> handles all WhatsApp notifications</p>
+          <p>📞 <strong>Direct outbound calling</strong> - no TwiML needed!</p>
         </div>
       </CardContent>
     </Card>

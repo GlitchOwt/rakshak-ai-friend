@@ -24,6 +24,10 @@ export class ElevenLabsService {
     return ElevenLabsService.instance;
   }
 
+  getAgentId(): string {
+    return this.agentId;
+  }
+
   async createConversationSession(callSid: string, userData: {
     name: string;
     location?: { latitude: number; longitude: number } | null;

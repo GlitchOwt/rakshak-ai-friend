@@ -12,6 +12,7 @@ import SOSButton from "@/components/SOSButton";
 import HelplineNumbers from "@/components/HelplineNumbers";
 import VoiceCallInterface from "@/components/VoiceCallInterface";
 import { useSOSIntegration } from "@/hooks/useSOSIntegration";
+import { elevenLabsService } from "@/services/elevenLabsService";
 
 const Index = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -161,6 +162,7 @@ const Index = () => {
         {showVoiceCall && (
           <div className="mb-6">
             <VoiceCallInterface
+              agentId={elevenLabsService.getAgentId()}
               onTriggerWordDetected={handleTriggerWordDetected}
               onSafeArrival={handleSafeArrival}
               onCallEnd={handleCallEnd}

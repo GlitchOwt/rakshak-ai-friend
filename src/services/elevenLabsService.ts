@@ -51,7 +51,8 @@ export class ElevenLabsService {
         userData
       });
 
-      const response = await fetch('https://api.elevenlabs.io/v1/convai/conversations', {
+      // Use the correct ElevenLabs Conversational AI API endpoint
+      const response = await fetch(`https://api.elevenlabs.io/v1/convai/conversations`, {
         method: 'POST',
         headers: {
           'xi-api-key': this.apiKey,
@@ -59,13 +60,8 @@ export class ElevenLabsService {
         },
         body: JSON.stringify({
           agent_id: this.agentId,
-          call_sid: callSid,
-          user_data: {
-            name: userData.name,
-            location: userData.location ? 
-              `${userData.location.latitude},${userData.location.longitude}` : 
-              'unknown'
-          }
+          // Remove call_sid from the payload as it might not be expected by the API
+          // user_data can be passed as custom variables if needed
         }),
       });
 
@@ -85,7 +81,9 @@ export class ElevenLabsService {
         } else if (response.status === 404) {
           errorMessage += '. Agent not found. Please check your VITE_ELEVENLABS_AGENT_ID.';
         } else if (response.status === 405) {
-          errorMessage += '. Method not allowed. This might indicate an incorrect API endpoint or agent configuration.';
+          errorMessage += '. Method not allowed. Please verify your agent is properly configured for Conversational AI and has the correct permissions.';
+        } else if (response.status === 422) {
+          errorMessage += '. Invalid request format. Please check the agent configuration.';
         }
         
         errorMessage += ` Response: ${responseText}`;
@@ -135,8 +133,8 @@ export class ElevenLabsService {
         return;
       }
 
-      const response = await fetch(`https://api.elevenlabs.io/v1/convai/conversations/${conversationId}/end`, {
-        method: 'POST',
+      const response = await fetch(`https://api.elevenlabs.io/v1/convai/conversations/${conversationId}`, {
+        method: 'DELETE',
         headers: {
           'xi-api-key': this.apiKey,
           'Content-Type': 'application/json',
@@ -148,6 +146,7 @@ export class ElevenLabsService {
       }
 
       session.isActive = false;
+      this.activeSessions.delete(conversationId);
       console.log(`ElevenLabs conversation ended: ${conversationId}`);
     } catch (error) {
       console.error('Failed to end ElevenLabs conversation:', error);
@@ -174,6 +173,44 @@ export class ElevenLabsService {
         </Stream>
     </Connect>
 </Response>`;
+  }
+
+  // Alternative method to create a simpler conversation session
+  async createSimpleConversation(): Promise<string> {
+    try {
+      if (!this.apiKey || !this.agentId) {
+        throw new Error('ElevenLabs API key and Agent ID must be configured');
+      }
+
+      // Try a simpler approach - just create a conversation with minimal payload
+      const response = await fetch(`https://api.elevenlabs.io/v1/convai/conversations`, {
+        method: 'POST',
+        headers: {
+          'xi-api-key': this.apiKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          agent_id: this.agentId
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`ElevenLabs API error: ${response.status} ${response.statusText}. Response: ${errorText}`);
+      }
+
+      const data = await response.json();
+      const conversationId = data.conversation_id;
+
+      if (!conversationId) {
+        throw new Error(`No conversation ID returned from ElevenLabs. Response: ${JSON.stringify(data)}`);
+      }
+
+      return conversationId;
+    } catch (error) {
+      console.error('Failed to create simple ElevenLabs conversation:', error);
+      throw error;
+    }
   }
 }
 

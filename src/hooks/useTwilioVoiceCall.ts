@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { twilioService } from '@/services/twilioService';
 import { callMonitoringService } from '@/services/callMonitoringService';
@@ -18,6 +18,27 @@ export const useTwilioVoiceCall = (config?: VoiceCallConfig) => {
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const [isInitiating, setIsInitiating] = useState(false);
 
+  // Listen for emergency and safe arrival events
+  useEffect(() => {
+    const handleEmergencyTriggered = (event: CustomEvent) => {
+      const { triggerWord } = event.detail;
+      config?.onEmergencyTriggered?.(triggerWord);
+    };
+
+    const handleSafeArrival = (event: CustomEvent) => {
+      const { safePhrase } = event.detail;
+      config?.onSafeArrival?.(safePhrase);
+    };
+
+    window.addEventListener('emergencyTriggered', handleEmergencyTriggered as EventListener);
+    window.addEventListener('safeArrival', handleSafeArrival as EventListener);
+
+    return () => {
+      window.removeEventListener('emergencyTriggered', handleEmergencyTriggered as EventListener);
+      window.removeEventListener('safeArrival', handleSafeArrival as EventListener);
+    };
+  }, [config]);
+
   const startSafetyCall = useCallback(async () => {
     setIsInitiating(true);
     
@@ -27,6 +48,11 @@ export const useTwilioVoiceCall = (config?: VoiceCallConfig) => {
       
       if (!userData.phone) {
         throw new Error('Phone number not found. Please update your profile.');
+      }
+
+      // Check if ElevenLabs is properly configured
+      if (!elevenLabsService.isConfigured()) {
+        throw new Error('ElevenLabs service is not properly configured. Please check your API key and Agent ID.');
       }
 
       // Get current location
@@ -50,19 +76,38 @@ export const useTwilioVoiceCall = (config?: VoiceCallConfig) => {
         // Continue without location
       }
 
-      // Trigger the call via Twilio + ElevenLabs
+      // First, try to create a simple ElevenLabs conversation
+      let conversationId: string;
+      try {
+        conversationId = await elevenLabsService.createSimpleConversation();
+        console.log('ElevenLabs conversation created:', conversationId);
+      } catch (elevenLabsError) {
+        console.error('ElevenLabs conversation creation failed:', elevenLabsError);
+        // For now, continue without ElevenLabs integration
+        conversationId = `mock_conversation_${Date.now()}`;
+        
+        toast({
+          title: "⚠️ Limited Mode",
+          description: "ElevenLabs AI companion is temporarily unavailable. Proceeding with basic safety call.",
+          variant: "destructive",
+          duration: 5000,
+        });
+      }
+
+      // Trigger the call via Twilio
       const callData = {
         userPhone: userData.phone,
         userName: userData.name || 'User',
         location,
-        emergencyContacts: userData.emergencyContacts || []
+        emergencyContacts: userData.emergencyContacts || [],
+        conversationId // Pass the conversation ID to Twilio
       };
 
       const response = await twilioService.triggerSafetyCall(callData);
       
-      if (response.callSid && response.conversationId) {
+      if (response.callSid) {
         setCurrentCallSid(response.callSid);
-        setCurrentConversationId(response.conversationId);
+        setCurrentConversationId(conversationId);
         setIsCallActive(true);
         
         // Register the call for monitoring
@@ -71,10 +116,11 @@ export const useTwilioVoiceCall = (config?: VoiceCallConfig) => {
           userName: callData.userName,
           userPhone: callData.userPhone,
           location: callData.location,
-          emergencyContacts: callData.emergencyContacts
+          emergencyContacts: callData.emergencyContacts,
+          conversationId: conversationId
         });
 
-        config?.onCallStarted?.(response.callSid, response.conversationId);
+        config?.onCallStarted?.(response.callSid, conversationId);
         
         toast({
           title: "🤖 AI Safety Companion Activated",
@@ -108,8 +154,12 @@ export const useTwilioVoiceCall = (config?: VoiceCallConfig) => {
       callMonitoringService.endCall(currentCallSid);
     }
     
-    if (currentConversationId) {
-      await elevenLabsService.endConversation(currentConversationId);
+    if (currentConversationId && !currentConversationId.startsWith('mock_')) {
+      try {
+        await elevenLabsService.endConversation(currentConversationId);
+      } catch (error) {
+        console.warn('Failed to end ElevenLabs conversation:', error);
+      }
       setCurrentConversationId(null);
     }
     

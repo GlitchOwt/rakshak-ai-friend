@@ -1,4 +1,3 @@
-import { elevenLabsService } from './elevenLabsService';
 import { makeWebhookService } from './makeWebhookService';
 
 interface CallData {
@@ -14,9 +13,10 @@ interface CallData {
 
 export class TwilioService {
   private static instance: TwilioService;
+  private readonly callTriggerWebhook = 'https://hook.eu2.make.com/f2ntahyyoo910b3mqquc1k73aot63cbl';
 
   constructor() {
-    // No longer need Twilio credentials since we're using ElevenLabs outbound calling
+    // Using Make.com webhook to trigger ElevenLabs calls
   }
 
   static getInstance(): TwilioService {
@@ -32,95 +32,86 @@ export class TwilioService {
     status: string;
   }> {
     try {
-      console.log('🚀 Triggering safety call via ElevenLabs outbound calling...', callData);
+      console.log('🚀 Triggering safety call via Make.com webhook...', callData);
 
-      // Check ElevenLabs account status first
-      const elevenLabsStatus = await elevenLabsService.getDetailedStatus();
-      
-      if (!elevenLabsStatus.accountStatus.hasOutboundCalling) {
-        throw new Error(`ElevenLabs outbound calling not available: ${elevenLabsStatus.accountStatus.error || 'Upgrade to a paid plan required'}`);
+      // Prepare payload for Make.com webhook
+      const webhookPayload = {
+        action: 'trigger_safety_call',
+        userPhone: callData.userPhone,
+        userName: callData.userName,
+        location: callData.location ? {
+          latitude: callData.location.latitude,
+          longitude: callData.location.longitude,
+          googleMapsUrl: `https://maps.google.com/?q=${callData.location.latitude},${callData.location.longitude}`
+        } : null,
+        emergencyContacts: callData.emergencyContacts,
+        timestamp: new Date().toISOString(),
+        source: 'rakshak_app'
+      };
+
+      console.log('📞 Sending call trigger to Make.com webhook:', webhookPayload);
+
+      // Send to Make.com webhook
+      const response = await fetch(this.callTriggerWebhook, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(webhookPayload),
+      });
+
+      const responseText = await response.text();
+      console.log('Make.com webhook response:', {
+        status: response.status,
+        statusText: response.statusText,
+        body: responseText
+      });
+
+      if (!response.ok) {
+        throw new Error(`Make.com webhook failed: ${response.status} ${response.statusText}. Response: ${responseText}`);
       }
 
-      // Directly initiate ElevenLabs outbound call
-      const conversationId = await elevenLabsService.initiateOutboundCall(
-        callData.userPhone,
-        {
-          name: callData.userName,
-          location: callData.location
-        }
-      );
+      // Generate IDs for tracking (Make.com will handle the actual ElevenLabs call)
+      const timestamp = Date.now();
+      const conversationId = `make_${timestamp}`;
+      const callSid = `make_call_${timestamp}`;
 
-      const callSid = `el_${conversationId}`;
-
-      // Log call initiation to Make.com for tracking
-      try {
-        await makeWebhookService.logCallInitiation({
-          userPhone: callData.userPhone,
-          userName: callData.userName,
-          location: callData.location,
-          emergencyContacts: callData.emergencyContacts,
-          conversationId: conversationId,
-          method: 'elevenlabs_outbound'
-        });
-      } catch (logError) {
-        console.warn('Failed to log call initiation:', logError);
-        // Don't fail the call if logging fails
-      }
+      console.log('✅ Make.com webhook triggered successfully. Call should be initiated by Make.com automation.');
 
       return {
         callSid,
         conversationId,
-        status: 'initiated'
+        status: 'webhook_triggered'
       };
     } catch (error) {
-      console.error('❌ Failed to trigger safety call:', error);
+      console.error('❌ Failed to trigger Make.com webhook:', error);
       
       if (error instanceof Error) {
-        throw new Error(`Failed to initiate safety call: ${error.message}`);
+        throw new Error(`Failed to trigger safety call via Make.com: ${error.message}`);
       } else {
-        throw new Error('Failed to initiate safety call. Please try again.');
+        throw new Error('Failed to trigger safety call via Make.com. Please try again.');
       }
-    }
-  }
-
-  async testElevenLabsOutbound(): Promise<void> {
-    console.log('🧪 Testing ElevenLabs outbound calling...');
-    
-    try {
-      // Check account status first
-      const status = await elevenLabsService.getDetailedStatus();
-      
-      if (!status.accountStatus.hasOutboundCalling) {
-        throw new Error(`ElevenLabs outbound calling not available: ${status.accountStatus.error || 'Upgrade required'}`);
-      }
-
-      const conversationId = await elevenLabsService.testOutboundCall();
-      console.log('✅ ElevenLabs outbound call test passed:', conversationId);
-      
-      // Wait a moment then end the test call
-      setTimeout(async () => {
-        try {
-          await elevenLabsService.endConversation(conversationId);
-          console.log('✅ Test call ended successfully');
-        } catch (error) {
-          console.warn('Failed to end test call:', error);
-        }
-      }, 10000); // End after 10 seconds
-      
-    } catch (error) {
-      console.error('❌ ElevenLabs outbound call test failed:', error);
-      throw error;
     }
   }
 
   async testWebhooks(): Promise<void> {
-    console.log('🧪 Testing Make.com webhooks...');
+    console.log('🧪 Testing Make.com call trigger webhook...');
     
     try {
-      // Test emergency alert webhook
-      await makeWebhookService.testEmergencyAlert();
+      const testData = {
+        userPhone: '+918788293663',
+        userName: 'Test User',
+        location: { latitude: 40.7128, longitude: -74.0060 },
+        emergencyContacts: [
+          { name: 'Test Contact', phone: '+1234567890', relation: 'friend' }
+        ]
+      };
+
+      await this.triggerSafetyCall(testData);
+      console.log('✅ Make.com call trigger webhook test completed');
       
-      // Test safe arrival webhook
+      // Also test other webhooks
+      await makeWebhookService.testEmergencyAlert();
       await makeWebhookService.testSafeArrival();
       
       console.log('✅ All webhook tests completed');
@@ -131,36 +122,36 @@ export class TwilioService {
   }
 
   getServiceStatus(): { [key: string]: boolean } {
-    const elevenLabsConfigured = elevenLabsService.isConfigured();
     const webhookStatus = makeWebhookService.getWebhookStatus();
     
     return {
-      elevenLabsConfigured,
-      elevenLabsOutbound: !!(elevenLabsService.getAgentId() && elevenLabsService.getPhoneNumberId()),
+      callTriggerWebhook: !!this.callTriggerWebhook,
       emergencyAlert: webhookStatus.emergencyAlert,
-      safeArrival: webhookStatus.safeArrival
+      safeArrival: webhookStatus.safeArrival,
+      elevenLabsConfigured: true, // Make.com handles ElevenLabs
+      elevenLabsOutbound: true // Make.com handles outbound calling
     };
   }
 
   async getDetailedServiceStatus(): Promise<{
-    elevenlabs: any;
+    makeWebhook: any;
     webhooks: any;
     overall: string;
   }> {
-    const elevenLabsStatus = await elevenLabsService.getDetailedStatus();
     const webhookStatus = makeWebhookService.getWebhookStatus();
     
     let overall = 'ready';
-    if (!elevenLabsStatus.accountStatus.hasOutboundCalling) {
-      overall = 'upgrade_required';
-    } else if (!elevenLabsStatus.configured) {
-      overall = 'configuration_required';
+    if (!this.callTriggerWebhook) {
+      overall = 'webhook_missing';
     } else if (!webhookStatus.emergencyAlert || !webhookStatus.safeArrival) {
-      overall = 'webhooks_missing';
+      overall = 'notification_webhooks_missing';
     }
     
     return {
-      elevenlabs: elevenLabsStatus,
+      makeWebhook: {
+        configured: !!this.callTriggerWebhook,
+        url: this.callTriggerWebhook
+      },
       webhooks: webhookStatus,
       overall
     };

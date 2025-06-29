@@ -1,4 +1,3 @@
-
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 
@@ -29,7 +28,7 @@ export const useSOSIntegration = () => {
         : 'Location unavailable';
 
       // This would integrate with Make.com or n8n webhook
-      const webhookUrl = process.env.REACT_APP_SOS_WEBHOOK_URL;
+      const webhookUrl = import.meta.env.VITE_SOS_WEBHOOK_URL;
       
       if (webhookUrl) {
         const payload = {
@@ -77,7 +76,7 @@ export const useSOSIntegration = () => {
 
   const sendSafeArrivalNotification = async (userName: string, contacts: Array<{name: string; phone: string}>) => {
     try {
-      const webhookUrl = process.env.REACT_APP_SAFE_ARRIVAL_WEBHOOK_URL;
+      const webhookUrl = import.meta.env.VITE_SAFE_ARRIVAL_WEBHOOK_URL;
       
       if (webhookUrl) {
         const payload = {

@@ -58,7 +58,7 @@ export const useTwilioVoiceCall = (config?: VoiceCallConfig) => {
 
       console.log('🚀 Triggering Make.com webhook with data:', webhookData);
 
-      // Trigger your Make.com webhook
+      // Trigger your Make.com webhook - ONLY THIS!
       const webhookUrl = 'https://hook.eu2.make.com/f2ntahyyoo910b3mqquc1k73aot63cbl';
       
       const response = await fetch(webhookUrl, {
@@ -75,7 +75,7 @@ export const useTwilioVoiceCall = (config?: VoiceCallConfig) => {
 
       console.log('✅ Make.com webhook triggered successfully');
 
-      // Generate mock IDs for UI tracking
+      // Generate mock IDs for UI tracking only
       const callSid = `make_${Date.now()}`;
       const conversationId = `conv_${Date.now()}`;
 
@@ -91,17 +91,6 @@ export const useTwilioVoiceCall = (config?: VoiceCallConfig) => {
         duration: 8000,
       });
 
-      // Simulate call connection status
-      setTimeout(() => {
-        if (isCallActive) {
-          toast({
-            title: "📞 Waiting for Call",
-            description: "Your phone should ring any moment from ElevenLabs...",
-            duration: 5000,
-          });
-        }
-      }, 5000);
-
     } catch (error) {
       console.error('Failed to trigger webhook:', error);
       toast({
@@ -112,7 +101,7 @@ export const useTwilioVoiceCall = (config?: VoiceCallConfig) => {
     } finally {
       setIsInitiating(false);
     }
-  }, [config, toast, isCallActive]);
+  }, [config, toast]);
 
   const endCall = useCallback(async () => {
     setCurrentCallSid(null);

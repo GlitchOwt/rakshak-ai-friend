@@ -2,11 +2,9 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Phone, PhoneOff, Shield, AlertTriangle, CheckCircle, Bot, Mic, TestTube, AlertCircle, ExternalLink, CreditCard } from "lucide-react";
+import { Phone, PhoneOff, Shield, AlertTriangle, CheckCircle, Bot, Mic, ExternalLink } from "lucide-react";
 import { useTwilioVoiceCall } from "@/hooks/useTwilioVoiceCall";
 import { useToast } from "@/hooks/use-toast";
-import { twilioService } from "@/services/twilioService";
-import { elevenLabsService } from "@/services/elevenLabsService";
 
 interface TwilioVoiceInterfaceProps {
   autoStart?: boolean;
@@ -26,12 +24,7 @@ const TwilioVoiceInterface = ({
   const [emergencyTriggered, setEmergencyTriggered] = useState(false);
   const [safeArrivalConfirmed, setSafeArrivalConfirmed] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
-  const [serviceStatus, setServiceStatus] = useState<{ [key: string]: boolean }>({});
-  const [elevenLabsStatus, setElevenLabsStatus] = useState<any>(null);
-  const [isTestingWebhooks, setIsTestingWebhooks] = useState(false);
-  const [isTestingOutbound, setIsTestingOutbound] = useState(false);
   const [hasAutoStarted, setHasAutoStarted] = useState(false);
-  const [showAccountUpgrade, setShowAccountUpgrade] = useState(false);
 
   const { 
     isCallActive, 
@@ -77,45 +70,13 @@ const TwilioVoiceInterface = ({
     }
   });
 
-  // Check ElevenLabs status on mount
-  useEffect(() => {
-    const checkElevenLabsStatus = async () => {
-      try {
-        const status = await elevenLabsService.getDetailedStatus();
-        setElevenLabsStatus(status);
-        
-        if (!status.accountStatus.hasOutboundCalling) {
-          setShowAccountUpgrade(true);
-        }
-      } catch (error) {
-        console.error('Failed to check ElevenLabs status:', error);
-      }
-    };
-
-    checkElevenLabsStatus();
-    setServiceStatus(twilioService.getServiceStatus());
-  }, []);
-
   // Auto-start call when autoStart prop is true
   useEffect(() => {
-    if (autoStart && !hasAutoStarted && !isCallActive && !isInitiating && elevenLabsStatus) {
-      const criticalServicesReady = serviceStatus.elevenLabsConfigured && serviceStatus.elevenLabsOutbound;
-      
-      if (criticalServicesReady && elevenLabsStatus.accountStatus.hasOutboundCalling) {
-        setHasAutoStarted(true);
-        startSafetyCall();
-      } else if (!elevenLabsStatus.accountStatus.hasOutboundCalling) {
-        // Show upgrade message instead of auto-starting
-        setShowAccountUpgrade(true);
-        toast({
-          title: "⚠️ Outbound Calling Not Available",
-          description: "Your ElevenLabs account needs to be upgraded to enable voice calling. You can still test the AI agent using the web interface.",
-          variant: "destructive",
-          duration: 10000,
-        });
-      }
+    if (autoStart && !hasAutoStarted && !isCallActive && !isInitiating) {
+      setHasAutoStarted(true);
+      startSafetyCall();
     }
-  }, [autoStart, hasAutoStarted, isCallActive, isInitiating, serviceStatus, elevenLabsStatus, startSafetyCall]);
+  }, [autoStart, hasAutoStarted, isCallActive, isInitiating, startSafetyCall]);
 
   // Call duration timer
   useEffect(() => {
@@ -144,67 +105,6 @@ const TwilioVoiceInterface = ({
     simulateTranscriptProcessing("I reached home safe");
   };
 
-  const handleTestWebhooks = async () => {
-    setIsTestingWebhooks(true);
-    try {
-      await twilioService.testWebhooks();
-      toast({
-        title: "🧪 Webhook Tests Completed",
-        description: "Check the browser console for detailed test results. Some tests may have failed - this is normal if Make.com scenarios aren't fully configured.",
-        duration: 8000,
-      });
-    } catch (error) {
-      console.error('Webhook test error:', error);
-      toast({
-        title: "⚠️ Webhook Tests Completed with Issues",
-        description: "Some webhook tests failed. Check the browser console for detailed error information. This is expected if Make.com scenarios aren't configured yet.",
-        variant: "destructive",
-        duration: 10000,
-      });
-    } finally {
-      setIsTestingWebhooks(false);
-    }
-  };
-
-  const handleTestOutboundCall = async () => {
-    setIsTestingOutbound(true);
-    try {
-      await twilioService.testElevenLabsOutbound();
-      toast({
-        title: "📞 ElevenLabs Outbound Test Started",
-        description: "Your phone should ring within 10 seconds. Answer to test the AI companion. The call will automatically end after 10 seconds.",
-        duration: 8000,
-      });
-    } catch (error) {
-      console.error('Outbound call test error:', error);
-      toast({
-        title: "❌ Outbound Call Test Failed",
-        description: error instanceof Error ? error.message : "Failed to initiate test call. Check the browser console for detailed error information.",
-        variant: "destructive",
-        duration: 10000,
-      });
-    } finally {
-      setIsTestingOutbound(false);
-    }
-  };
-
-  const handleTestWebInterface = () => {
-    const agentUrl = `https://elevenlabs.io/app/talk-to?agent_id=${elevenLabsService.getAgentId()}`;
-    window.open(agentUrl, '_blank');
-    
-    toast({
-      title: "🌐 Testing AI Agent in Browser",
-      description: "The ElevenLabs web interface has opened in a new tab. You can test the AI agent directly there.",
-      duration: 8000,
-    });
-  };
-
-  // Service status indicator
-  const getStatusColor = (status: boolean) => status ? 'bg-green-500' : 'bg-red-500';
-  const allServicesReady = Object.values(serviceStatus).every(status => status);
-  const criticalServicesReady = serviceStatus.elevenLabsConfigured && serviceStatus.elevenLabsOutbound;
-  const hasOutboundCalling = elevenLabsStatus?.accountStatus?.hasOutboundCalling;
-
   if (!isCallActive && !isInitiating) {
     return (
       <Card className="border-0 shadow-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white">
@@ -216,104 +116,20 @@ const TwilioVoiceInterface = ({
           <p className="opacity-90 text-sm">
             {autoStart ? 
               "Your AI safety companion is starting automatically..." :
-              "Start a voice call with your AI safety companion powered by ElevenLabs."
+              "Start a voice call with your AI safety companion powered by ElevenLabs via Make.com."
             }
           </p>
         </CardHeader>
         <CardContent className="text-center space-y-4">
-          {/* Service Status */}
-          <div className="bg-white/10 rounded-lg p-3 text-xs">
-            <div className="flex items-center justify-center mb-2">
-              <Shield className="h-4 w-4 mr-2" />
-              <span className="font-semibold">Service Status</span>
-            </div>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <div className="flex items-center">
-                <div className={`w-2 h-2 rounded-full mr-2 ${getStatusColor(serviceStatus.elevenLabsConfigured)}`}></div>
-                ElevenLabs API
-              </div>
-              <div className="flex items-center">
-                <div className={`w-2 h-2 rounded-full mr-2 ${getStatusColor(!!hasOutboundCalling)}`}></div>
-                Outbound Calling
-              </div>
-              <div className="flex items-center">
-                <div className={`w-2 h-2 rounded-full mr-2 ${getStatusColor(serviceStatus.emergencyAlert)}`}></div>
-                Emergency Alerts
-              </div>
-              <div className="flex items-center">
-                <div className={`w-2 h-2 rounded-full mr-2 ${getStatusColor(serviceStatus.safeArrival)}`}></div>
-                Safe Arrival
-              </div>
-            </div>
-          </div>
-
-          {/* Account Upgrade Notice */}
-          {showAccountUpgrade && elevenLabsStatus && !hasOutboundCalling && (
-            <div className="bg-yellow-500/20 border border-yellow-500/30 rounded-lg p-4 text-sm">
-              <div className="flex items-center justify-center mb-3">
-                <CreditCard className="h-5 w-5 mr-2 text-yellow-300" />
-                <span className="font-semibold text-yellow-200">Upgrade Required</span>
-              </div>
-              <div className="text-xs text-yellow-100 space-y-2">
-                <p><strong>Account Type:</strong> {elevenLabsStatus.accountStatus.accountType}</p>
-                <p>Outbound calling requires a paid ElevenLabs subscription.</p>
-                <div className="mt-3 space-y-2">
-                  <Button
-                    onClick={handleTestWebInterface}
-                    variant="outline"
-                    size="sm"
-                    className="bg-white/20 border-white/30 text-white hover:bg-white/30 w-full"
-                  >
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    Test AI Agent in Browser
-                  </Button>
-                  <p className="text-xs opacity-75">
-                    You can test the AI agent using the ElevenLabs web interface while you upgrade your account.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {!autoStart && hasOutboundCalling && (
+          {!autoStart && (
             <Button 
               onClick={startSafetyCall}
               className="bg-white text-purple-600 hover:bg-gray-100 px-8 py-3 text-lg font-semibold rounded-xl shadow-lg w-full"
-              disabled={isInitiating || !criticalServicesReady}
+              disabled={isInitiating}
             >
               <Phone className="h-5 w-5 mr-2" />
-              {isInitiating ? 'Connecting to AI...' : 'Start AI Safety Call'}
+              {isInitiating ? 'Triggering Make.com...' : 'Start AI Safety Call'}
             </Button>
-          )}
-
-          {autoStart && !criticalServicesReady && (
-            <div className="bg-yellow-500/20 border border-yellow-500/30 rounded-lg p-3 text-sm">
-              <div className="flex items-center justify-center mb-2">
-                <AlertCircle className="h-4 w-4 mr-2 text-yellow-300" />
-                <span className="font-semibold text-yellow-200">Waiting for Services</span>
-              </div>
-              <div className="text-xs text-yellow-100">
-                <p>Checking ElevenLabs outbound calling configuration...</p>
-              </div>
-            </div>
-          )}
-
-          {!criticalServicesReady && !autoStart && !showAccountUpgrade && (
-            <div className="bg-yellow-500/20 border border-yellow-500/30 rounded-lg p-3 text-sm">
-              <div className="flex items-center justify-center mb-2">
-                <AlertCircle className="h-4 w-4 mr-2 text-yellow-300" />
-                <span className="font-semibold text-yellow-200">Configuration Required</span>
-              </div>
-              <div className="text-xs text-yellow-100 space-y-1">
-                {!serviceStatus.elevenLabsConfigured && (
-                  <p>• ElevenLabs API key and Agent ID needed</p>
-                )}
-                {!serviceStatus.elevenLabsOutbound && (
-                  <p>• ElevenLabs Phone Number ID required for outbound calling</p>
-                )}
-                <p className="mt-2 opacity-75">Check your environment variables (.env file)</p>
-              </div>
-            </div>
           )}
           
           <div className="bg-white/10 rounded-lg p-4 text-sm space-y-2">
@@ -322,76 +138,13 @@ const TwilioVoiceInterface = ({
               <span className="font-semibold">How it works:</span>
             </div>
             <div className="space-y-1 text-xs opacity-90">
-              {hasOutboundCalling ? (
-                <>
-                  <p>• ElevenLabs will call your phone directly within 10 seconds</p>
-                  <p>• AI agent will start a friendly conversation</p>
-                </>
-              ) : (
-                <>
-                  <p>• Test the AI agent using the web interface</p>
-                  <p>• Upgrade to enable direct phone calls</p>
-                </>
-              )}
+              <p>• Make.com automation triggers ElevenLabs call to your phone</p>
+              <p>• AI agent will start a friendly conversation</p>
               <p>• Say "help" or "danger" if you need emergency assistance</p>
               <p>• Say "reached home safe" when you arrive safely</p>
               <p>• Emergency contacts will be automatically notified via WhatsApp</p>
             </div>
           </div>
-
-          {/* Development Test Buttons */}
-          {process.env.NODE_ENV === 'development' && !autoStart && (
-            <div className="space-y-2">
-              {hasOutboundCalling && (
-                <Button
-                  onClick={handleTestOutboundCall}
-                  variant="outline"
-                  size="sm"
-                  className="bg-white/20 border-white/30 text-white hover:bg-white/30 w-full"
-                  disabled={isTestingOutbound || !serviceStatus.elevenLabsOutbound}
-                >
-                  <Phone className="h-4 w-4 mr-2" />
-                  {isTestingOutbound ? 'Testing Outbound Call...' : 'Test ElevenLabs Outbound Call'}
-                </Button>
-              )}
-              
-              <Button
-                onClick={handleTestWebInterface}
-                variant="outline"
-                size="sm"
-                className="bg-white/20 border-white/30 text-white hover:bg-white/30 w-full"
-              >
-                <ExternalLink className="h-4 w-4 mr-2" />
-                Test AI Agent in Browser
-              </Button>
-              
-              <Button
-                onClick={handleTestWebhooks}
-                variant="outline"
-                size="sm"
-                className="bg-white/20 border-white/30 text-white hover:bg-white/30 w-full"
-                disabled={isTestingWebhooks}
-              >
-                <TestTube className="h-4 w-4 mr-2" />
-                {isTestingWebhooks ? 'Testing Webhooks...' : 'Test Make.com Webhooks'}
-              </Button>
-            </div>
-          )}
-
-          {/* Recommendations */}
-          {elevenLabsStatus?.recommendations && elevenLabsStatus.recommendations.length > 0 && (
-            <div className="bg-blue-500/20 border border-blue-500/30 rounded-lg p-3 text-xs">
-              <div className="flex items-center justify-center mb-2">
-                <AlertCircle className="h-4 w-4 mr-2 text-blue-300" />
-                <span className="font-semibold text-blue-200">Recommendations</span>
-              </div>
-              <div className="text-blue-100 space-y-1">
-                {elevenLabsStatus.recommendations.map((rec: string, index: number) => (
-                  <p key={index}>• {rec}</p>
-                ))}
-              </div>
-            </div>
-          )}
         </CardContent>
       </Card>
     );
@@ -402,12 +155,12 @@ const TwilioVoiceInterface = ({
       <Card className="border-0 shadow-xl bg-gradient-to-r from-blue-500 to-indigo-500 text-white">
         <CardContent className="p-8 text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-          <h3 className="text-xl font-semibold mb-2">Connecting to AI Companion</h3>
-          <p className="opacity-90 mb-4">ElevenLabs is initiating outbound call to your phone...</p>
+          <h3 className="text-xl font-semibold mb-2">Triggering Make.com Automation</h3>
+          <p className="opacity-90 mb-4">Your webhook is being triggered to start the ElevenLabs call...</p>
           <div className="bg-white/10 rounded-lg p-3 text-sm space-y-1">
-            <p>📞 Your phone should ring any moment...</p>
-            <p>🤖 ElevenLabs agent is ready to chat</p>
-            <p>🔗 No TwiML required - direct outbound calling!</p>
+            <p>📞 Your phone should ring within 10-30 seconds...</p>
+            <p>🤖 ElevenLabs agent is being activated via Make.com</p>
+            <p>🔗 Direct automation - no manual intervention needed!</p>
           </div>
         </CardContent>
       </Card>
@@ -420,7 +173,7 @@ const TwilioVoiceInterface = ({
         <div className="flex items-center justify-center mb-3">
           <div className={`w-3 h-3 rounded-full mr-2 ${isConnected ? 'bg-green-300 animate-pulse' : 'bg-yellow-300 animate-pulse'}`}></div>
           <CardTitle className="text-xl">
-            {isConnected ? 'AI Companion Active' : 'Connecting...'}
+            {isConnected ? 'AI Companion Active' : 'Waiting for Call...'}
           </CardTitle>
         </div>
         <div className="flex justify-center space-x-2 flex-wrap">
@@ -447,7 +200,7 @@ const TwilioVoiceInterface = ({
         {/* Connection Status */}
         {!isConnected && (
           <div className="bg-white/10 rounded-lg p-3 text-center">
-            <p className="text-sm">📞 Waiting for call connection...</p>
+            <p className="text-sm">📞 Waiting for Make.com to connect the call...</p>
             <p className="text-xs opacity-75 mt-1">Answer your phone to start talking with AI</p>
           </div>
         )}
@@ -511,12 +264,11 @@ const TwilioVoiceInterface = ({
 
         {/* Instructions */}
         <div className="text-xs opacity-75 text-center space-y-1 bg-white/5 rounded-lg p-3">
-          <p>🤖 <strong>ElevenLabs AI</strong> is listening and chatting with you</p>
+          <p>🤖 <strong>Make.com + ElevenLabs</strong> handling your call</p>
           <p>🚨 Say <strong>"help"</strong> or <strong>"danger"</strong> for emergency alerts</p>
           <p>✅ Say <strong>"reached home safe"</strong> when you arrive</p>
           <p>💬 Speak naturally - the AI will keep you company!</p>
-          <p>🔗 <strong>Make.com</strong> handles all WhatsApp notifications</p>
-          <p>📞 <strong>Direct outbound calling</strong> - no TwiML needed!</p>
+          <p>📱 <strong>Automated workflow</strong> - no manual intervention needed!</p>
         </div>
       </CardContent>
     </Card>

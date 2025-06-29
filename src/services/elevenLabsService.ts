@@ -15,9 +15,10 @@ export class ElevenLabsService {
   private activeSessions: Map<string, ConversationSession> = new Map();
 
   constructor() {
-    this.apiKey = 'sk_79f1280e3a472f43b502191436d1b08d6a2bf839e1508e01';
-    this.agentId = 'agent_01jyr8s453eq2ad62stq1ntew8';
-    this.phoneNumberId = 'phnum_01jyxfy5bhfra81edb674mse3w';
+    // Updated with your new credentials
+    this.apiKey = 'sk_d68f8c8c8e655648ae78055611a31f2c16290a7a490970f1';
+    this.agentId = 'agent_01jyc7qxw6esd8br6t2j1bkxjk';
+    this.phoneNumberId = 'phnum_01jyca45f1ffh8554a51pga36b';
   }
 
   static getInstance(): ElevenLabsService {
@@ -130,18 +131,22 @@ export class ElevenLabsService {
         throw new Error(`ElevenLabs outbound calling is not available for your account. ${accountStatus.error || 'Please upgrade to a paid plan to enable voice calling.'}`);
       }
 
-      // Use the exact format from the curl command you provided
+      // Use the exact format from your curl command
+      const requestPayload = {
+        agent_id: this.agentId,
+        agent_phone_number_id: this.phoneNumberId,
+        to_number: targetPhone
+      };
+
+      console.log('📞 Making ElevenLabs outbound call request:', requestPayload);
+
       const response = await fetch('https://api.elevenlabs.io/v1/convai/twilio/outbound-call', {
         method: 'POST',
         headers: {
           'xi-api-key': this.apiKey,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          agent_id: this.agentId,
-          agent_phone_number_id: this.phoneNumberId,
-          to_number: targetPhone
-        }),
+        body: JSON.stringify(requestPayload),
       });
 
       const responseText = await response.text();
@@ -239,9 +244,9 @@ export class ElevenLabsService {
     return Array.from(this.activeSessions.values()).filter(session => session.isActive);
   }
 
-  // Test the outbound call functionality with the hardcoded phone number
+  // Test the outbound call functionality with your phone number
   async testOutboundCall(): Promise<string> {
-    const targetPhone = '+918788293663'; // The phone number from your example
+    const targetPhone = '+918788293663'; // Your phone number
     
     return await this.initiateOutboundCall(targetPhone, {
       name: 'Test User',

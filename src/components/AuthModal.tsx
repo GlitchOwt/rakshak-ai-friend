@@ -60,7 +60,7 @@ const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
       const userData = {
         id: Date.now(),
         email,
-        phone: "+91 8788293663", // Hardcoded phone number
+        phone: "+91 8788293663", // Updated to your phone number
         name: "User",
         emergencyContacts: []
       };
@@ -136,7 +136,7 @@ const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
                   <Input
                     id="phone"
                     type="tel"
-                    placeholder="+91 9876543210"
+                    placeholder="+91 8788293663"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                   />

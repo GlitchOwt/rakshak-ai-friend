@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -61,7 +60,7 @@ const AuthModal = ({ isOpen, onClose, onSuccess }: AuthModalProps) => {
       const userData = {
         id: Date.now(),
         email,
-        phone: "+91 9876543210",
+        phone: "+91 8788293663", // Hardcoded phone number
         name: "User",
         emergencyContacts: []
       };
